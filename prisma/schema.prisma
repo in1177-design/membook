@@ -1,0 +1,248 @@
+// Schema for the "ספר זיכרון" pilot — collection tool for greeting/memory albums.
+// Modeled from docs/PRD-פיילוט-איסוף-חומרים.md and docs/בריף-בנייה-פיילוט.md (v1 scope),
+// with the multi-tenant seam from docs/תכנון-ארכיטקטורה-טכנית.md (organizationId on Project).
+
+generator client {
+  provider = "prisma-client"
+  output   = "../generated/prisma"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+enum Language {
+  HE
+  RU
+  EN
+}
+
+enum ProjectStatus {
+  ACTIVE
+  CLOSED
+}
+
+enum DeviceType {
+  MOBILE
+  DESKTOP
+  UNKNOWN
+}
+
+enum AttendingStatus {
+  YES
+  NO
+  MAYBE
+}
+
+// Reserved for a future B2B layer (studios/designers) sitting above projects.
+// Not used in v1 — every project belongs to the single pilot operator.
+model Organization {
+  id        String    @id @default(cuid())
+  name      String
+  createdAt DateTime  @default(now())
+  projects  Project[]
+}
+
+model Project {
+  id                 String        @id @default(cuid())
+  name               String
+  eventType          String?
+  customerName       String?
+  customerPhone      String?
+  eventDate          DateTime?
+  submissionDeadline DateTime?
+  notes              String?
+  coverImageUrl      String?
+  status             ProjectStatus @default(ACTIVE)
+  defaultLanguage    Language      @default(HE)
+
+  // Shown at the top of the invitee's submission page. Per-language like
+  // Question, since it's guest-facing content, not admin-only.
+  introTextHe String?
+  introTextRu String?
+  introTextEn String?
+
+  organizationId String?
+  organization   Organization? @relation(fields: [organizationId], references: [id])
+
+  questions Question[]
+  invitees  Invitee[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([organizationId])
+}
+
+// A personal library of reusable question text, so future projects don't
+// require retyping from scratch. Deliberately not linked to any Project or
+// Organization — global to the single pilot operator, matching v1 scope.
+model QuestionTemplate {
+  id String @id @default(cuid())
+
+  textHe String
+  textRu String?
+  textEn String?
+
+  helperTextHe String?
+  helperTextRu String?
+  helperTextEn String?
+
+  createdAt DateTime @default(now())
+}
+
+// Same idea as QuestionTemplate, for the guest-facing intro paragraph.
+model IntroTemplate {
+  id    String @id @default(cuid())
+  label String
+
+  textHe String
+  textRu String?
+  textEn String?
+
+  createdAt DateTime @default(now())
+}
+
+// One free-text question per row so a project can hold 1..N questions (not hardcoded).
+// Up to 3 manually-entered language variants per question (no machine translation),
+// matching the same tone/privacy call as the future AI-editing feature.
+model Question {
+  id        String  @id @default(cuid())
+  projectId String
+  project   Project @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  sortOrder Int
+
+  textHe String
+  textRu String?
+  textEn String?
+
+  helperTextHe String?
+  helperTextRu String?
+  helperTextEn String?
+
+  answers Answer[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([projectId])
+}
+
+// A family member invited to contribute. "Second contact" fields cover couples who
+// share one link — status stays at the link level, we can't tell which of the two answered.
+model Invitee {
+  id        String  @id @default(cuid())
+  projectId String
+  project   Project @relation(fields: [projectId], references: [id], onDelete: Cascade)
+
+  name     String
+  phone    String?
+  relation String?
+  language Language?
+
+  name2  String?
+  phone2 String?
+
+  // Internal admin notes about this invitee — never shown to the guest.
+  notes String?
+
+  // RSVP status, set by the admin (not collected from the guest in v1).
+  attending AttendingStatus?
+
+  inviteLink InviteLink?
+  submission Submission?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([projectId])
+}
+
+// The token is split out from Invitee so a link can be revoked/regenerated without
+// touching invitee history. Status (sent/opened/submitted) is derived at query time
+// from sentAt / firstViewedAt / lastViewedAt / Submission.submittedAt rather than
+// stored redundantly. Expiry is derived from Project.eventDate + grace window, not
+// a stored TTL, so it stays correct if the event date moves.
+model InviteLink {
+  id        String  @id @default(cuid())
+  inviteeId String  @unique
+  invitee   Invitee @relation(fields: [inviteeId], references: [id], onDelete: Cascade)
+
+  token     String    @unique
+  revokedAt DateTime?
+
+  sentAt        DateTime?
+  firstViewedAt DateTime?
+  lastViewedAt  DateTime?
+
+  viewLogs ViewLog[]
+
+  createdAt DateTime @default(now())
+
+  @@index([token])
+}
+
+// Every hit on the public page, kept for later analysis (repeat visits vs. one-off).
+// The admin table only ever surfaces first/last from InviteLink; this is raw material.
+model ViewLog {
+  id           String     @id @default(cuid())
+  inviteLinkId String
+  inviteLink   InviteLink @relation(fields: [inviteLinkId], references: [id], onDelete: Cascade)
+
+  viewedAt   DateTime   @default(now())
+  userAgent  String?
+  isBot      Boolean    @default(false)
+  deviceType DeviceType @default(UNKNOWN)
+
+  @@index([inviteLinkId])
+}
+
+// v1 has no draft state — one submission per invitee, created/updated in a single
+// "regular form" action, editable until the project closes.
+model Submission {
+  id        String  @id @default(cuid())
+  inviteeId String  @unique
+  invitee   Invitee @relation(fields: [inviteeId], references: [id], onDelete: Cascade)
+
+  submittedAt  DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+  dateLocation String?
+
+  // Position of this spread within the finished album; set from the
+  // drag-and-drop order on the "עיצוב האלבום" admin screen.
+  sortOrder Int @default(0)
+
+  answers     Answer[]
+  mediaAssets MediaAsset[]
+}
+
+model Answer {
+  id           String     @id @default(cuid())
+  submissionId String
+  submission   Submission @relation(fields: [submissionId], references: [id], onDelete: Cascade)
+  questionId   String
+  question     Question   @relation(fields: [questionId], references: [id])
+
+  text String
+
+  @@unique([submissionId, questionId])
+  @@index([submissionId])
+}
+
+// Separate one-to-many table so a future move from "one photo" to 2-3 photos per
+// submission needs no schema change.
+model MediaAsset {
+  id           String     @id @default(cuid())
+  submissionId String
+  submission   Submission @relation(fields: [submissionId], references: [id], onDelete: Cascade)
+
+  cloudinaryPublicId String
+  url                String
+  width              Int?
+  height             Int?
+  format             String?
+
+  createdAt DateTime @default(now())
+
+  @@index([submissionId])
+}

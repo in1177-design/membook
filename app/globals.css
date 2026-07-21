@@ -1,0 +1,21 @@
+* {
+  box-sizing: border-box;
+}
+
+body {
+  margin: 0;
+  font-family: var(--font-assistant), system-ui, -apple-system, "Segoe UI", Arial, sans-serif;
+  background: #f7f6f4;
+  color: #1f1f1f;
+}
+
+input,
+textarea,
+select,
+button {
+  font: inherit;
+}
+
+a {
+  color: inherit;
+}

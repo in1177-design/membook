@@ -1,0 +1,29 @@
+{
+  "name": "book-mem",
+  "version": "0.1.0",
+  "private": true,
+  "description": "ספר זיכרון — כלי איסוף חומרים לאלבומי ברכה (פיילוט)",
+  "scripts": {
+    "prisma:format": "prisma format",
+    "prisma:validate": "prisma validate",
+    "prisma:generate": "prisma generate",
+    "prisma:migrate": "prisma migrate dev"
+  },
+  "license": "UNLICENSED",
+  "devDependencies": {
+    "@types/archiver": "^8.0.0",
+    "@types/node": "^26.1.1",
+    "@types/react": "^19.2.17",
+    "@types/react-dom": "^19.2.3",
+    "prisma": "^7.8.0",
+    "typescript": "7.0.2"
+  },
+  "dependencies": {
+    "@prisma/adapter-pg": "^7.8.0",
+    "@prisma/client": "^7.8.0",
+    "archiver": "^8.0.0",
+    "next": "^16.2.10",
+    "react": "^19.2.7",
+    "react-dom": "^19.2.7"
+  }
+}
