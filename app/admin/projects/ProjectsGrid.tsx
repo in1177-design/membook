@@ -11,6 +11,7 @@ import { deleteProject } from "../../../lib/actions";
 type Project = {
   id: string;
   name: string;
+  celebrantNames: string | null;
   status: "ACTIVE" | "CLOSED";
   coverImageUrl: string | null;
   eventDate: Date | null;
@@ -19,10 +20,25 @@ type Project = {
   eventType: string | null;
   submissionDeadline: Date | null;
   notes: string | null;
+  questionMode: "ALL" | "PICK_ONE";
   introTextHe: string | null;
   introTextRu: string | null;
   introTextEn: string | null;
-  questions: { id: string; textHe: string; textRu: string | null; textEn: string | null; helperTextHe: string | null }[];
+  photoRequestTextHe: string | null;
+  photoRequestTextRu: string | null;
+  photoRequestTextEn: string | null;
+  blessingPromptTextHe: string | null;
+  blessingPromptTextRu: string | null;
+  blessingPromptTextEn: string | null;
+  questions: {
+    id: string;
+    textHe: string;
+    textRu: string | null;
+    textEn: string | null;
+    helperTextHe: string | null;
+    helperTextRu: string | null;
+    helperTextEn: string | null;
+  }[];
   _count: { invitees: number };
 };
 

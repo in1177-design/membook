@@ -6,7 +6,6 @@ import { useRouter, usePathname } from "next/navigation";
 type ProjectSummary = {
   id: string;
   name: string;
-  totalMaterials: number;
   totalParticipants: number;
   submittedCount: number;
 };
@@ -20,12 +19,17 @@ export default function ProjectSidebar({ allProjects }: Props) {
   const pathname = usePathname();
   const [collapsed, setCollapsed] = useState(false);
 
-  const urlProjectId = pathname.match(/^\/admin\/projects\/([^/]+)(?:\/album)?$/)?.[1];
+  const urlProjectId = pathname.match(/^\/admin\/projects\/([^/]+)(?:\/(?:album|preview|settings))?$/)?.[1];
+  const isAllProjectsRoute = pathname === "/admin/projects";
   const isAlbumRoute = /^\/admin\/projects\/[^/]+\/album$/.test(pathname);
+  const isPreviewRoute = /^\/admin\/projects\/[^/]+\/preview$/.test(pathname);
+  const isSettingsRoute = /^\/admin\/projects\/[^/]+\/settings$/.test(pathname);
   const activeProject = allProjects.find((p) => p.id === urlProjectId) ?? allProjects[0];
-  const isStoryActive = activeProject.id === urlProjectId && !isAlbumRoute;
+  const isStoryActive = activeProject.id === urlProjectId && !isAlbumRoute && !isPreviewRoute && !isSettingsRoute;
   const isAlbumActive = activeProject.id === urlProjectId && isAlbumRoute;
-  const { id: projectId, name: projectName, totalMaterials, totalParticipants, submittedCount } = activeProject;
+  const isPreviewActive = activeProject.id === urlProjectId && isPreviewRoute;
+  const isSettingsActive = activeProject.id === urlProjectId && isSettingsRoute;
+  const { id: projectId, name: projectName, totalParticipants, submittedCount } = activeProject;
 
   const pct = totalParticipants > 0 ? Math.round((submittedCount / totalParticipants) * 100) : 0;
 
@@ -41,7 +45,7 @@ export default function ProjectSidebar({ allProjects }: Props) {
         style={{
           width: collapsed ? 72 : 260,
           transition: "width 0.18s ease",
-          background: "#202124",
+          background: "#1e1f25",
           borderRadius: 20,
           padding: collapsed ? "20px 10px" : "20px 18px",
           boxSizing: "border-box",
@@ -75,13 +79,21 @@ export default function ProjectSidebar({ allProjects }: Props) {
           <BookHeartIcon />
         </button>
 
+        <SidebarItem
+          icon={<AllProjectsIcon />}
+          label="כל הפרויקטים"
+          collapsed={collapsed}
+          active={isAllProjectsRoute}
+          onClick={isAllProjectsRoute ? undefined : () => router.push("/admin/projects")}
+        />
+
         <div
           style={{
             position: "relative",
             display: "flex",
             alignItems: "center",
             gap: 10,
-            background: "#2a2b2f",
+            background: "#2a2c35",
             borderRadius: 12,
             padding: collapsed ? "10px 0" : "10px 12px",
             justifyContent: collapsed ? "center" : "flex-start",
@@ -111,13 +123,40 @@ export default function ProjectSidebar({ allProjects }: Props) {
           </select>
         </div>
 
-        <nav style={{ display: "flex", flexDirection: "column", gap: 6 }}>
+        {!collapsed ? (
+          <div>
+            <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 8 }}>
+              <span style={{ fontSize: 13, fontWeight: 700, color: "#ff5c00" }}>{pct}%</span>
+              <span style={{ fontSize: 12, color: "#c9c7c2" }}>התקדמות האלבום</span>
+            </div>
+            <div style={{ height: 6, borderRadius: 999, background: "#424652", overflow: "hidden" }}>
+              <div style={{ height: "100%", width: `${pct}%`, background: "#ff5c00", borderRadius: 999 }} />
+            </div>
+            <div style={{ fontSize: 11, color: "#8a8883", marginTop: 6 }}>
+              {submittedCount} מתוך {totalParticipants} מוזמנים הגישו
+            </div>
+          </div>
+        ) : (
+          <div style={{ height: 6, borderRadius: 999, background: "#424652", overflow: "hidden" }}>
+            <div style={{ height: "100%", width: `${pct}%`, background: "#ff5c00", borderRadius: 999 }} />
+          </div>
+        )}
+
+        <nav
+          style={{
+            display: "flex",
+            flexDirection: "column",
+            gap: 6,
+            paddingRight: collapsed ? 0 : 10,
+            borderRight: collapsed ? "none" : "2px solid #35363a",
+          }}
+        >
           <SidebarItem
-            icon={<GridIcon />}
-            label="איסוף חומרים"
-            count={totalMaterials}
+            icon={<SettingsIcon />}
+            label="הגדרות הפרויקט"
             collapsed={collapsed}
-            disabled
+            active={isSettingsActive}
+            onClick={isSettingsActive ? undefined : () => router.push(`/admin/projects/${projectId}/settings`)}
           />
           <SidebarItem
             icon={<LayersIcon />}
@@ -125,6 +164,13 @@ export default function ProjectSidebar({ allProjects }: Props) {
             collapsed={collapsed}
             active={isStoryActive}
             onClick={isStoryActive ? undefined : () => router.push(`/admin/projects/${projectId}`)}
+          />
+          <SidebarItem
+            icon={<EyeIcon />}
+            label="תצוגה מקדימה של הטופס"
+            collapsed={collapsed}
+            active={isPreviewActive}
+            onClick={isPreviewActive ? undefined : () => router.push(`/admin/projects/${projectId}/preview`)}
           />
           <SidebarItem
             icon={<ColumnsIcon />}
@@ -136,25 +182,6 @@ export default function ProjectSidebar({ allProjects }: Props) {
         </nav>
 
         <div style={{ marginTop: "auto", display: "flex", flexDirection: "column", gap: 16 }}>
-          {!collapsed ? (
-            <div>
-              <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 8 }}>
-                <span style={{ fontSize: 13, fontWeight: 700, color: "#e2703f" }}>{pct}%</span>
-                <span style={{ fontSize: 12, color: "#c9c7c2" }}>התקדמות האלבום</span>
-              </div>
-              <div style={{ height: 6, borderRadius: 999, background: "#38393d", overflow: "hidden" }}>
-                <div style={{ height: "100%", width: `${pct}%`, background: "#e2703f", borderRadius: 999 }} />
-              </div>
-              <div style={{ fontSize: 11, color: "#8a8883", marginTop: 6 }}>
-                {submittedCount} מתוך {totalParticipants} מוזמנים הגישו
-              </div>
-            </div>
-          ) : (
-            <div style={{ height: 6, borderRadius: 999, background: "#38393d", overflow: "hidden" }}>
-              <div style={{ height: "100%", width: `${pct}%`, background: "#e2703f", borderRadius: 999 }} />
-            </div>
-          )}
-
           <SidebarItem icon={<PeopleIcon />} label="משתתפים" count={totalParticipants} collapsed={collapsed} />
 
           <hr style={{ border: "none", borderTop: "1px solid #38393d", margin: 0 }} />
@@ -182,8 +209,8 @@ export default function ProjectSidebar({ allProjects }: Props) {
                 width: 30,
                 height: 30,
                 borderRadius: "50%",
-                background: "#e2a06f",
-                color: "#2a2b2f",
+                background: "#ff5c00",
+                color: "white",
                 display: "flex",
                 alignItems: "center",
                 justifyContent: "center",
@@ -256,8 +283,8 @@ function SidebarItem({
         padding: collapsed ? "10px 0" : "10px 10px",
         justifyContent: collapsed ? "center" : "flex-start",
         borderRadius: 10,
-        background: active ? "#33343a" : "transparent",
-        borderRight: active ? "3px solid #e2703f" : "3px solid transparent",
+        background: active ? "#2a2c35" : "transparent",
+        borderRight: active ? "3px solid #ff5c00" : "3px solid transparent",
         opacity: disabled ? 0.4 : 1,
         cursor: disabled ? "not-allowed" : onClick ? "pointer" : "default",
       }}
@@ -290,8 +317,8 @@ function SidebarItem({
 function BookHeartIcon() {
   return (
     <svg width="18" height="18" viewBox="0 0 20 20" fill="none">
-      <path d="M3 4.5c0-.8.7-1.5 1.5-1.5H10v13H4.5C3.7 16 3 15.3 3 14.5v-10Z" stroke="#e2703f" strokeWidth="1.3" strokeLinejoin="round" />
-      <path d="M17 4.5c0-.8-.7-1.5-1.5-1.5H10v13h5.5c.8 0 1.5-.7 1.5-1.5v-10Z" stroke="#e2703f" strokeWidth="1.3" strokeLinejoin="round" />
+      <path d="M3 4.5c0-.8.7-1.5 1.5-1.5H10v13H4.5C3.7 16 3 15.3 3 14.5v-10Z" stroke="#ff5c00" strokeWidth="1.3" strokeLinejoin="round" />
+      <path d="M17 4.5c0-.8-.7-1.5-1.5-1.5H10v13h5.5c.8 0 1.5-.7 1.5-1.5v-10Z" stroke="#ff5c00" strokeWidth="1.3" strokeLinejoin="round" />
     </svg>
   );
 }
@@ -304,13 +331,27 @@ function ChevronDownIcon() {
   );
 }
 
-function GridIcon() {
+function AllProjectsIcon() {
   return (
     <svg width="17" height="17" viewBox="0 0 20 20" fill="none" style={{ flexShrink: 0 }}>
-      <rect x="3" y="3" width="6" height="6" rx="1.3" stroke="#d4d2cd" strokeWidth="1.3" />
-      <rect x="11" y="3" width="6" height="6" rx="1.3" stroke="#d4d2cd" strokeWidth="1.3" />
-      <rect x="3" y="11" width="6" height="6" rx="1.3" stroke="#d4d2cd" strokeWidth="1.3" />
-      <rect x="11" y="11" width="6" height="6" rx="1.3" stroke="#d4d2cd" strokeWidth="1.3" />
+      <rect x="2.5" y="2.5" width="6" height="6" rx="1.4" stroke="#d4d2cd" strokeWidth="1.3" />
+      <rect x="11.5" y="2.5" width="6" height="6" rx="1.4" stroke="#d4d2cd" strokeWidth="1.3" />
+      <rect x="2.5" y="11.5" width="6" height="6" rx="1.4" stroke="#d4d2cd" strokeWidth="1.3" />
+      <rect x="11.5" y="11.5" width="6" height="6" rx="1.4" stroke="#d4d2cd" strokeWidth="1.3" />
+    </svg>
+  );
+}
+
+function SettingsIcon() {
+  return (
+    <svg width="17" height="17" viewBox="0 0 20 20" fill="none" style={{ flexShrink: 0 }}>
+      <circle cx="10" cy="10" r="2.6" stroke="#d4d2cd" strokeWidth="1.3" />
+      <path
+        d="M10 2.8v1.8M10 15.4v1.8M17.2 10h-1.8M4.6 10H2.8M15 5l-1.3 1.3M6.3 13.7 5 15M15 15l-1.3-1.3M6.3 6.3 5 5"
+        stroke="#d4d2cd"
+        strokeWidth="1.3"
+        strokeLinecap="round"
+      />
     </svg>
   );
 }
@@ -330,6 +371,15 @@ function ColumnsIcon() {
     <svg width="17" height="17" viewBox="0 0 20 20" fill="none" style={{ flexShrink: 0 }}>
       <rect x="3" y="3" width="14" height="14" rx="2" stroke="#d4d2cd" strokeWidth="1.3" />
       <path d="M8.3 3v14M13.7 3v14" stroke="#d4d2cd" strokeWidth="1.3" />
+    </svg>
+  );
+}
+
+function EyeIcon() {
+  return (
+    <svg width="17" height="17" viewBox="0 0 20 20" fill="none" style={{ flexShrink: 0 }}>
+      <path d="M1.5 10S4.5 4 10 4s8.5 6 8.5 6-3 6-8.5 6-8.5-6-8.5-6Z" stroke="#d4d2cd" strokeWidth="1.3" strokeLinejoin="round" />
+      <circle cx="10" cy="10" r="2.3" stroke="#d4d2cd" strokeWidth="1.3" />
     </svg>
   );
 }

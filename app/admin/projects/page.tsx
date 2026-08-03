@@ -13,7 +13,7 @@ export default async function ProjectsPage() {
         _count: { select: { invitees: true } },
         questions: {
           orderBy: { sortOrder: "asc" },
-          select: { id: true, textHe: true, textRu: true, textEn: true, helperTextHe: true },
+          select: { id: true, textHe: true, textRu: true, textEn: true, helperTextHe: true, helperTextRu: true, helperTextEn: true },
         },
       },
     }),

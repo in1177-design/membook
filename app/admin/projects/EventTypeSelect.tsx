@@ -2,8 +2,16 @@
 
 import { useState } from "react";
 import { emojiFor } from "./eventTypeEmoji";
+import { inputStyle } from "./formStyles";
 
-export default function EventTypeSelect({ options, initialValue }: { options: string[]; initialValue?: string }) {
+type Props = {
+  options: string[];
+  initialValue?: string;
+  onValueChange?: (value: string) => void;
+  readOnly?: boolean;
+};
+
+export default function EventTypeSelect({ options, initialValue, onValueChange, readOnly }: Props) {
   const knownValue = initialValue && options.includes(initialValue) ? initialValue : "";
   const unknownValue = initialValue && !options.includes(initialValue) ? initialValue : "";
   const [isNew, setIsNew] = useState(Boolean(unknownValue));
@@ -13,8 +21,13 @@ export default function EventTypeSelect({ options, initialValue }: { options: st
       <select
         name="eventType"
         defaultValue={unknownValue ? "__new__" : knownValue}
-        onChange={(e) => setIsNew(e.target.value === "__new__")}
-        style={{ padding: "8px 10px", fontSize: 15, border: "1px solid #ccc", borderRadius: 6 }}
+        disabled={readOnly}
+        onChange={(e) => {
+          const value = e.target.value;
+          setIsNew(value === "__new__");
+          onValueChange?.(value === "__new__" ? "" : value);
+        }}
+        style={{ ...inputStyle, cursor: readOnly ? "default" : "pointer" }}
       >
         <option value="">סוג האירוע</option>
         {options.map((opt) => (
@@ -29,7 +42,9 @@ export default function EventTypeSelect({ options, initialValue }: { options: st
           name="eventTypeNew"
           defaultValue={unknownValue}
           placeholder="שם הסוג החדש"
-          style={{ padding: "8px 10px", fontSize: 15, border: "1px solid #ccc", borderRadius: 6 }}
+          disabled={readOnly}
+          onChange={(e) => onValueChange?.(e.target.value)}
+          style={inputStyle}
         />
       )}
     </div>

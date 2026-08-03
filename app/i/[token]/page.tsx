@@ -2,11 +2,11 @@ import { headers } from "next/headers";
 import { prisma } from "../../../lib/prisma";
 import { detectDeviceType, detectIsBot } from "../../../lib/tracking";
 import { isPastGracePeriod } from "../../../lib/linkValidity";
-import SubmissionForm from "./SubmissionForm";
+import SubmissionWizard from "./SubmissionWizard";
 
 export const dynamic = "force-dynamic";
 
-const CONTENT: Record<
+export const CONTENT: Record<
   string,
   {
     eyebrow: string;
@@ -14,11 +14,13 @@ const CONTENT: Record<
     photoLabel: string;
     photoHint: string;
     submitLabel: string;
-    draftLabel: string;
     dateLocationLabel: string;
     dateLocationPlaceholder: string;
     backToEditLabel: string;
     answersHeading: string;
+    startLabel: string;
+    nextLabel: string;
+    backLabel: string;
   }
 > = {
   HE: {
@@ -26,37 +28,52 @@ const CONTENT: Record<
     intro: "שמחים שהצטרפת! נשמח אם תעני על השאלות למטה.",
     photoLabel: "לחצי או גררי להעלאת תמונה",
     photoHint: "JPG · PNG · WEBP",
-    submitLabel: "שליחה",
-    draftLabel: "שמירה כטיוטה",
+    submitLabel: "אישור ושליחה",
     dateLocationLabel: "תאריך ומקום",
     dateLocationPlaceholder: "למשל: יולי 2026 · תל אביב",
     backToEditLabel: "חזרה לעריכה",
     answersHeading: "הסיפור שלך",
+    startLabel: "בואי נתחיל",
+    nextLabel: "הבא",
+    backLabel: "הקודם",
   },
   RU: {
     eyebrow: "Альбом памяти",
     intro: "Мы рады, что вы с нами! Пожалуйста, ответьте на вопросы ниже.",
     photoLabel: "Нажмите или перетащите фото сюда",
     photoHint: "JPG · PNG · WEBP",
-    submitLabel: "Отправить",
-    draftLabel: "Сохранить черновик",
+    submitLabel: "Подтвердить и отправить",
     dateLocationLabel: "Дата и место",
     dateLocationPlaceholder: "напр. июль 2026 · Тель-Авив",
     backToEditLabel: "Вернуться к редактированию",
     answersHeading: "Ваша история",
+    startLabel: "Начнём",
+    nextLabel: "Далее",
+    backLabel: "Назад",
   },
   EN: {
     eyebrow: "Memory album",
     intro: "So glad you're here! Please answer the questions below.",
     photoLabel: "Click or drag to upload",
     photoHint: "JPG · PNG · WEBP",
-    submitLabel: "Submit",
-    draftLabel: "Save as draft",
+    submitLabel: "Confirm & submit",
     dateLocationLabel: "Date & location",
     dateLocationPlaceholder: "e.g. July 2026 · Tel Aviv",
     backToEditLabel: "Back to editing",
     answersHeading: "Your story",
+    startLabel: "Let's begin",
+    nextLabel: "Next",
+    backLabel: "Back",
   },
+};
+
+// Fallback for the PICK_ONE-only, per-language photo-request and blessing
+// guidance text, used when a project hasn't set its own wording yet — mirrors
+// CONTENT.*.photoLabel since that's the closest existing equivalent.
+export const PICK_ONE_FALLBACK_TEXT: Record<string, { photoRequest: string; blessingPrompt: string }> = {
+  HE: { photoRequest: CONTENT.HE.photoLabel, blessingPrompt: "כמה מילים לברכה..." },
+  RU: { photoRequest: CONTENT.RU.photoLabel, blessingPrompt: "Несколько слов поздравления..." },
+  EN: { photoRequest: CONTENT.EN.photoLabel, blessingPrompt: "A few words of blessing..." },
 };
 
 export default async function InviteePage({ params }: { params: Promise<{ token: string }> }) {
@@ -143,6 +160,18 @@ export default async function InviteePage({ params }: { params: Promise<{ token:
     EN: project.introTextEn ?? project.introTextHe ?? CONTENT.EN.intro,
   };
 
+  const photoRequestTexts = {
+    HE: project.photoRequestTextHe ?? PICK_ONE_FALLBACK_TEXT.HE.photoRequest,
+    RU: project.photoRequestTextRu ?? project.photoRequestTextHe ?? PICK_ONE_FALLBACK_TEXT.RU.photoRequest,
+    EN: project.photoRequestTextEn ?? project.photoRequestTextHe ?? PICK_ONE_FALLBACK_TEXT.EN.photoRequest,
+  };
+
+  const blessingPromptTexts = {
+    HE: project.blessingPromptTextHe ?? PICK_ONE_FALLBACK_TEXT.HE.blessingPrompt,
+    RU: project.blessingPromptTextRu ?? project.blessingPromptTextHe ?? PICK_ONE_FALLBACK_TEXT.RU.blessingPrompt,
+    EN: project.blessingPromptTextEn ?? project.blessingPromptTextHe ?? PICK_ONE_FALLBACK_TEXT.EN.blessingPrompt,
+  };
+
   return (
     <>
       <style>{`
@@ -150,16 +179,22 @@ export default async function InviteePage({ params }: { params: Promise<{ token:
       `}</style>
       <div className="invitee-bg">
         <main style={{ maxWidth: 1048, margin: "0 auto", padding: "40px 24px" }}>
-          <SubmissionForm
+          <SubmissionWizard
             token={token}
             projectName={project.name}
             content={CONTENT}
             introTexts={introTexts}
+            photoRequestTexts={photoRequestTexts}
+            blessingPromptTexts={blessingPromptTexts}
+            coverImageUrl={project.coverImageUrl}
             initialLanguage={language}
             questions={questions}
-            alreadySubmitted={Boolean(invitee.submission)}
+            questionMode={project.questionMode}
+            isCompleted={Boolean(invitee.submission?.completedAt)}
             existingPhotoUrl={invitee.submission?.mediaAssets[0]?.url ?? null}
             existingDateLocation={invitee.submission?.dateLocation ?? null}
+            existingBlessingText={invitee.submission?.blessingText ?? null}
+            existingBlessingSignedBy={invitee.submission?.blessingSignedBy ?? invitee.name}
           />
         </main>
       </div>

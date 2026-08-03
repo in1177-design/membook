@@ -34,6 +34,11 @@ enum AttendingStatus {
   MAYBE
 }
 
+enum QuestionMode {
+  ALL      // everyone answers every question (default, existing behavior)
+  PICK_ONE // each participant picks exactly one question from the pool to answer
+}
+
 // Reserved for a future B2B layer (studios/designers) sitting above projects.
 // Not used in v1 — every project belongs to the single pilot operator.
 model Organization {
@@ -46,6 +51,10 @@ model Organization {
 model Project {
   id                 String        @id @default(cuid())
   name               String
+  // Label for this shown to the admin next to "name" varies with eventType
+  // (couple's names for a wedding, celebrant's name for a birthday, etc.) —
+  // see celebrantLabelFor() in app/admin/projects/eventTypeEmoji.ts.
+  celebrantNames     String?
   eventType          String?
   customerName       String?
   customerPhone      String?
@@ -55,12 +64,25 @@ model Project {
   coverImageUrl      String?
   status             ProjectStatus @default(ACTIVE)
   defaultLanguage    Language      @default(HE)
+  questionMode       QuestionMode  @default(ALL)
 
   // Shown at the top of the invitee's submission page. Per-language like
   // Question, since it's guest-facing content, not admin-only.
   introTextHe String?
   introTextRu String?
   introTextEn String?
+
+  // Shown only in PICK_ONE mode: replaces the hardcoded photo-upload guidance
+  // for that flow. Per-language, HE-fallback pattern as introText* above.
+  photoRequestTextHe String?
+  photoRequestTextRu String?
+  photoRequestTextEn String?
+
+  // The blessing-textarea placeholder, also PICK_ONE-only. Per-language,
+  // HE-fallback pattern as introText*/photoRequestText* above.
+  blessingPromptTextHe String?
+  blessingPromptTextRu String?
+  blessingPromptTextEn String?
 
   organizationId String?
   organization   Organization? @relation(fields: [organizationId], references: [id])
@@ -197,8 +219,8 @@ model ViewLog {
   @@index([inviteLinkId])
 }
 
-// v1 has no draft state — one submission per invitee, created/updated in a single
-// "regular form" action, editable until the project closes.
+// One submission per invitee, created/updated incrementally as the participant
+// moves through the multi-step wizard, editable until the project closes.
 model Submission {
   id        String  @id @default(cuid())
   inviteeId String  @unique
@@ -207,6 +229,17 @@ model Submission {
   submittedAt  DateTime @default(now())
   updatedAt    DateTime @updatedAt
   dateLocation String?
+
+  // Only used in the project's PICK_ONE question mode — a free-text wish/blessing,
+  // separate from the answer to the chosen question, plus who it's signed by
+  // (defaults to the invitee's registered name, but editable).
+  blessingText     String?
+  blessingSignedBy String?
+
+  // Set only when the participant confirms the final preview step — distinguishes
+  // "in progress" (autosaved along the way) from "actually done". Null means the
+  // wizard should still be shown; non-null means the read-only book view should.
+  completedAt DateTime?
 
   // Position of this spread within the finished album; set from the
   // drag-and-drop order on the "עיצוב האלבום" admin screen.

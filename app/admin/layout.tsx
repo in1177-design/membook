@@ -14,7 +14,7 @@ export default async function AdminLayout({ children }: { children: React.ReactN
     orderBy: { createdAt: "desc" },
     include: {
       invitees: {
-        select: { submission: { select: { mediaAssets: { select: { id: true } } } } },
+        select: { submission: { select: { id: true } } },
       },
     },
   });
@@ -26,15 +26,14 @@ export default async function AdminLayout({ children }: { children: React.ReactN
   const allProjects = projects.map((p) => ({
     id: p.id,
     name: p.name,
-    totalMaterials: p.invitees.reduce((sum, i) => sum + (i.submission?.mediaAssets.length ?? 0), 0),
     totalParticipants: p.invitees.length,
     submittedCount: p.invitees.filter((i) => i.submission).length,
   }));
 
   return (
-    <div style={{ display: "flex", gap: 24, alignItems: "flex-start", maxWidth: 1400, margin: "24px auto", padding: "0 24px" }}>
+    <div style={{ display: "flex", gap: 24, alignItems: "flex-start", width: "100%", padding: "24px 16px 24px 0", boxSizing: "border-box" }}>
       <ProjectSidebar allProjects={allProjects} />
-      <div style={{ flex: 1, minWidth: 0 }}>{children}</div>
+      <div style={{ flex: 1, minWidth: 0, maxWidth: 1400, margin: "0 auto", paddingInlineEnd: 24 }}>{children}</div>
     </div>
   );
 }

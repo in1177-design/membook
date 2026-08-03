@@ -46,9 +46,6 @@ export default async function AlbumDesignPage({ params }: { params: Promise<{ id
 
   return (
     <main>
-      <p style={{ marginBottom: 4 }}>
-        <a href={`/admin/projects/${project.id}`}>← חזרה לפרויקט</a>
-      </p>
       <h1 style={{ fontSize: 24, margin: "0 0 4px" }}>עיצוב האלבום</h1>
       <p style={{ color: "#666", marginBottom: 24 }}>
         כאן רואים את כל הכפולות שנוצרו לאלבום. גררי כדי לשנות את הסדר.

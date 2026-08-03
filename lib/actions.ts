@@ -4,7 +4,7 @@ import { randomBytes, createHash } from "crypto";
 import { redirect } from "next/navigation";
 import { revalidatePath } from "next/cache";
 import { prisma } from "./prisma";
-import type { Language } from "../generated/prisma/client";
+import type { Language, QuestionMode } from "../generated/prisma/client";
 import { extractSpreadsheetId, parseCsv, guessNamePhoneColumns, rowsLookLikeHeader, normalizeIsraeliPhone } from "./googleSheet";
 
 function generateToken(): string {
@@ -15,6 +15,10 @@ function toLanguage(value: FormDataEntryValue | null): Language {
   return value === "RU" || value === "EN" ? value : "HE";
 }
 
+function toQuestionMode(value: FormDataEntryValue | null): QuestionMode {
+  return value === "PICK_ONE" ? "PICK_ONE" : "ALL";
+}
+
 export async function createProject(formData: FormData) {
   const name = String(formData.get("name") ?? "").trim();
   if (!name) throw new Error("שם הפרויקט חובה");
@@ -23,6 +27,7 @@ export async function createProject(formData: FormData) {
   const eventTypeNew = String(formData.get("eventTypeNew") ?? "").trim();
   const eventType = (eventTypeSelect === "__new__" ? eventTypeNew : eventTypeSelect) || null;
 
+  const celebrantNames = String(formData.get("celebrantNames") ?? "").trim() || null;
   const customerName = String(formData.get("customerName") ?? "").trim() || null;
   const customerPhone = String(formData.get("customerPhone") ?? "").trim() || null;
   const eventDateRaw = String(formData.get("eventDate") ?? "").trim();
@@ -32,14 +37,22 @@ export async function createProject(formData: FormData) {
   const notes = String(formData.get("notes") ?? "").trim() || null;
   const coverImageUrl = String(formData.get("coverImageUrl") ?? "").trim() || null;
   const defaultLanguage = toLanguage(formData.get("defaultLanguage"));
+  const questionMode = toQuestionMode(formData.get("questionMode"));
   const introTextHe = String(formData.get("introTextHe") ?? "").trim() || null;
   const introTextRu = String(formData.get("introTextRu") ?? "").trim() || null;
   const introTextEn = String(formData.get("introTextEn") ?? "").trim() || null;
   const saveIntroAsTemplate = formData.get("saveIntroAsTemplate") === "on";
+  const photoRequestTextHe = String(formData.get("photoRequestTextHe") ?? "").trim() || null;
+  const photoRequestTextRu = String(formData.get("photoRequestTextRu") ?? "").trim() || null;
+  const photoRequestTextEn = String(formData.get("photoRequestTextEn") ?? "").trim() || null;
+  const blessingPromptTextHe = String(formData.get("blessingPromptTextHe") ?? "").trim() || null;
+  const blessingPromptTextRu = String(formData.get("blessingPromptTextRu") ?? "").trim() || null;
+  const blessingPromptTextEn = String(formData.get("blessingPromptTextEn") ?? "").trim() || null;
 
   const project = await prisma.project.create({
     data: {
       name,
+      celebrantNames,
       eventType,
       customerName,
       customerPhone,
@@ -48,9 +61,16 @@ export async function createProject(formData: FormData) {
       notes,
       coverImageUrl,
       defaultLanguage,
+      questionMode,
       introTextHe,
       introTextRu,
       introTextEn,
+      photoRequestTextHe,
+      photoRequestTextRu,
+      photoRequestTextEn,
+      blessingPromptTextHe,
+      blessingPromptTextRu,
+      blessingPromptTextEn,
     },
   });
 
@@ -58,21 +78,25 @@ export async function createProject(formData: FormData) {
   const questionTextsRu = formData.getAll("questionTextRu").map((v) => String(v).trim());
   const questionTextsEn = formData.getAll("questionTextEn").map((v) => String(v).trim());
   const questionHelpers = formData.getAll("questionHelper").map((v) => String(v).trim());
+  const questionHelpersRu = formData.getAll("questionHelperRu").map((v) => String(v).trim());
+  const questionHelpersEn = formData.getAll("questionHelperEn").map((v) => String(v).trim());
 
   for (let i = 0; i < questionTexts.length; i++) {
     const text = questionTexts[i];
     if (!text) continue;
     const helper = questionHelpers[i] || null;
+    const helperRu = questionHelpersRu[i] || null;
+    const helperEn = questionHelpersEn[i] || null;
     const textRu = questionTextsRu[i] || null;
     const textEn = questionTextsEn[i] || null;
 
     await prisma.question.create({
-      data: { projectId: project.id, sortOrder: i, textHe: text, textRu, textEn, helperTextHe: helper },
+      data: { projectId: project.id, sortOrder: i, textHe: text, textRu, textEn, helperTextHe: helper, helperTextRu: helperRu, helperTextEn: helperEn },
     });
 
     const existingTemplate = await prisma.questionTemplate.findFirst({ where: { textHe: text } });
     if (!existingTemplate) {
-      await prisma.questionTemplate.create({ data: { textHe: text, textRu, textEn, helperTextHe: helper } });
+      await prisma.questionTemplate.create({ data: { textHe: text, textRu, textEn, helperTextHe: helper, helperTextRu: helperRu, helperTextEn: helperEn } });
     }
   }
 
@@ -95,6 +119,7 @@ export async function updateProjectDetails(projectId: string, formData: FormData
   const eventTypeNew = String(formData.get("eventTypeNew") ?? "").trim();
   const eventType = (eventTypeSelect === "__new__" ? eventTypeNew : eventTypeSelect) || null;
 
+  const celebrantNames = String(formData.get("celebrantNames") ?? "").trim() || null;
   const customerName = String(formData.get("customerName") ?? "").trim() || null;
   const customerPhone = String(formData.get("customerPhone") ?? "").trim() || null;
   const eventDateRaw = String(formData.get("eventDate") ?? "").trim();
@@ -103,23 +128,52 @@ export async function updateProjectDetails(projectId: string, formData: FormData
   const submissionDeadline = submissionDeadlineRaw ? new Date(submissionDeadlineRaw) : null;
   const notes = String(formData.get("notes") ?? "").trim() || null;
   const coverImageUrl = String(formData.get("coverImageUrl") ?? "").trim() || null;
+  const questionMode = toQuestionMode(formData.get("questionMode"));
   const introTextHe = String(formData.get("introTextHe") ?? "").trim() || null;
   const introTextRu = String(formData.get("introTextRu") ?? "").trim() || null;
   const introTextEn = String(formData.get("introTextEn") ?? "").trim() || null;
   const saveIntroAsTemplate = formData.get("saveIntroAsTemplate") === "on";
+  const photoRequestTextHe = String(formData.get("photoRequestTextHe") ?? "").trim() || null;
+  const photoRequestTextRu = String(formData.get("photoRequestTextRu") ?? "").trim() || null;
+  const photoRequestTextEn = String(formData.get("photoRequestTextEn") ?? "").trim() || null;
+  const blessingPromptTextHe = String(formData.get("blessingPromptTextHe") ?? "").trim() || null;
+  const blessingPromptTextRu = String(formData.get("blessingPromptTextRu") ?? "").trim() || null;
+  const blessingPromptTextEn = String(formData.get("blessingPromptTextEn") ?? "").trim() || null;
 
   const questionIds = formData.getAll("questionId").map((v) => String(v).trim());
   const questionTexts = formData.getAll("questionText").map((v) => String(v).trim());
   const questionTextsRu = formData.getAll("questionTextRu").map((v) => String(v).trim());
   const questionTextsEn = formData.getAll("questionTextEn").map((v) => String(v).trim());
   const questionHelpers = formData.getAll("questionHelper").map((v) => String(v).trim());
+  const questionHelpersRu = formData.getAll("questionHelperRu").map((v) => String(v).trim());
+  const questionHelpersEn = formData.getAll("questionHelperEn").map((v) => String(v).trim());
   const submittedIds = new Set(questionIds.filter(Boolean));
 
   try {
     await prisma.$transaction(async (tx) => {
       await tx.project.update({
         where: { id: projectId },
-        data: { name, eventType, customerName, customerPhone, eventDate, submissionDeadline, notes, coverImageUrl, introTextHe, introTextRu, introTextEn },
+        data: {
+          name,
+          celebrantNames,
+          eventType,
+          customerName,
+          customerPhone,
+          eventDate,
+          submissionDeadline,
+          notes,
+          coverImageUrl,
+          questionMode,
+          introTextHe,
+          introTextRu,
+          introTextEn,
+          photoRequestTextHe,
+          photoRequestTextRu,
+          photoRequestTextEn,
+          blessingPromptTextHe,
+          blessingPromptTextRu,
+          blessingPromptTextEn,
+        },
       });
 
       // Rows removed in the UI simply don't appear in submittedIds — delete those.
@@ -136,14 +190,21 @@ export async function updateProjectDetails(projectId: string, formData: FormData
         const text = questionTexts[i];
         if (!text) continue;
         const helper = questionHelpers[i] || null;
+        const helperRu = questionHelpersRu[i] || null;
+        const helperEn = questionHelpersEn[i] || null;
         const textRu = questionTextsRu[i] || null;
         const textEn = questionTextsEn[i] || null;
         const id = questionIds[i];
 
         if (id) {
-          await tx.question.update({ where: { id }, data: { textHe: text, textRu, textEn, helperTextHe: helper } });
+          await tx.question.update({
+            where: { id },
+            data: { textHe: text, textRu, textEn, helperTextHe: helper, helperTextRu: helperRu, helperTextEn: helperEn },
+          });
         } else {
-          await tx.question.create({ data: { projectId, sortOrder: sortOrder++, textHe: text, textRu, textEn, helperTextHe: helper } });
+          await tx.question.create({
+            data: { projectId, sortOrder: sortOrder++, textHe: text, textRu, textEn, helperTextHe: helper, helperTextRu: helperRu, helperTextEn: helperEn },
+          });
         }
       }
     });
@@ -161,7 +222,14 @@ export async function updateProjectDetails(projectId: string, formData: FormData
     const existingTemplate = await prisma.questionTemplate.findFirst({ where: { textHe: text } });
     if (!existingTemplate) {
       await prisma.questionTemplate.create({
-        data: { textHe: text, textRu: questionTextsRu[i] || null, textEn: questionTextsEn[i] || null, helperTextHe: questionHelpers[i] || null },
+        data: {
+          textHe: text,
+          textRu: questionTextsRu[i] || null,
+          textEn: questionTextsEn[i] || null,
+          helperTextHe: questionHelpers[i] || null,
+          helperTextRu: questionHelpersRu[i] || null,
+          helperTextEn: questionHelpersEn[i] || null,
+        },
       });
     }
   }
