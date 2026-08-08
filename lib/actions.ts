@@ -245,6 +245,90 @@ export async function updateProjectDetails(projectId: string, formData: FormData
   revalidatePath(`/admin/projects/${projectId}`);
 }
 
+// Lightweight, single-purpose update for the step-by-step "build" page — saves
+// just the guest-facing headline/intro text on blur. Deliberately separate from
+// updateProjectDetails: that action expects the *entire* form each time and
+// deletes any question not resubmitted, so driving it from a page that only
+// edits two fields risks silently wiping the question bank. This one only ever
+// touches the fields explicitly passed in.
+// Narrow, additive-only counterpart to updateProjectDetails' question handling —
+// used by the build page's Step 3 (questions) editor. Deliberately never
+// deletes a question (no remove control in that editor yet) and never
+// touches helperText* (not editable there), so it can't silently wipe data
+// the old settings-page QuestionsBuilder set. Returns the resulting id for
+// each input row (unchanged if it had one, freshly created otherwise, or the
+// same value passed in if the row was skipped for having no Hebrew text) so
+// the client can sync newly-created ids into its state without a full refetch.
+export async function updateProjectQuestions(
+  projectId: string,
+  questions: { id: string | null; textHe: string; textRu: string; textEn: string }[]
+): Promise<{ ids: (string | null)[] }> {
+  const ids: (string | null)[] = [];
+  await prisma.$transaction(async (tx) => {
+    let sortOrder = await tx.question.count({ where: { projectId } });
+    for (const q of questions) {
+      const textHe = q.textHe.trim();
+      if (!textHe) {
+        ids.push(q.id);
+        continue;
+      }
+      const textRu = q.textRu.trim() || null;
+      const textEn = q.textEn.trim() || null;
+      if (q.id) {
+        await tx.question.update({ where: { id: q.id }, data: { textHe, textRu, textEn } });
+        ids.push(q.id);
+      } else {
+        const created = await tx.question.create({ data: { projectId, sortOrder: sortOrder++, textHe, textRu, textEn } });
+        ids.push(created.id);
+      }
+    }
+  });
+  revalidatePath(`/admin/projects/${projectId}/build`);
+  return { ids };
+}
+
+// Deletes a single question from the build page's Step 3 editor. Refuses to
+// delete a question any guest has already answered — Answer.question has no
+// cascade delete on purpose, so this would otherwise fail with a foreign-key
+// error; surfacing a clear reason is friendlier than a raw DB error.
+export async function deleteProjectQuestion(
+  projectId: string,
+  questionId: string
+): Promise<{ ok: true } | { ok: false; error: string }> {
+  const question = await prisma.question.findUnique({ where: { id: questionId } });
+  if (!question || question.projectId !== projectId) {
+    return { ok: false, error: "השאלה לא נמצאה" };
+  }
+  const answerCount = await prisma.answer.count({ where: { questionId } });
+  if (answerCount > 0) {
+    return { ok: false, error: "לא ניתן למחוק שאלה שכבר נענתה על ידי מוזמנים" };
+  }
+  await prisma.question.delete({ where: { id: questionId } });
+  revalidatePath(`/admin/projects/${projectId}/build`);
+  return { ok: true };
+}
+
+export async function updateProjectGuestText(
+  projectId: string,
+  fields: {
+    guestHeadlineHe?: string | null;
+    guestHeadlineRu?: string | null;
+    guestHeadlineEn?: string | null;
+    introTextHe?: string | null;
+    introTextRu?: string | null;
+    introTextEn?: string | null;
+    blessingPromptTextHe?: string | null;
+    blessingPromptTextRu?: string | null;
+    blessingPromptTextEn?: string | null;
+    photoRequestTextHe?: string | null;
+    photoRequestTextRu?: string | null;
+    photoRequestTextEn?: string | null;
+  }
+) {
+  await prisma.project.update({ where: { id: projectId }, data: fields });
+  revalidatePath(`/admin/projects/${projectId}/build`);
+}
+
 // Only offered in the UI once a project is CLOSED, as a deliberate, irreversible
 // cleanup step — not something available on active projects.
 export async function deleteProject(projectId: string) {

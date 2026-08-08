@@ -10,6 +10,10 @@ export const colors = {
   border: "#e2e8f0",
   accent: "#4a6c9b",
   buttonDark: "#1a1d23",
+  // Used for the small captions that guide the admin above each editable
+  // field on the "build" page (e.g. "כותרת:", "טקסט הנחיה לברכה") — per the
+  // Setup2 sketches, distinct from the plain-gray section/step label above it.
+  guidanceOrange: "#e07b1a",
 };
 
 export const labelStyle: React.CSSProperties = {
@@ -37,12 +41,6 @@ export const inputStyle: React.CSSProperties = {
   width: "100%",
   boxSizing: "border-box",
   fontFamily: "inherit",
-};
-
-export const smallInputStyle: React.CSSProperties = {
-  ...inputStyle,
-  padding: "8px 10px",
-  fontSize: 13,
 };
 
 // Russian/English are LTR languages — their typed text should read left-to-right

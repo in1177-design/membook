@@ -1,29 +1,51 @@
-import type { LangContent } from "../types";
+import type { Lang, LangContent } from "../types";
+import type { IntroGuidance } from "../content";
 
+// Russian/English are LTR languages — their free text (headline, opening
+// text, guidance) should read left-to-right and hug the left edge, even
+// though the page chrome around it stays RTL.
 export default function IntroStep({
+  lang,
   projectName,
   c,
+  eventTypeLabel,
   introText,
-  coverImageUrl,
+  guidance,
   onStart,
 }: {
+  lang: Lang;
   projectName: string;
   c: LangContent;
+  eventTypeLabel: string;
   introText: string;
-  coverImageUrl?: string | null;
+  guidance?: IntroGuidance;
   onStart: () => void;
 }) {
   return (
-    <div className="sub-page sub-page-form">
+    <div className="sub-page sub-page-form" dir={lang === "HE" ? "rtl" : "ltr"}>
       <div className="sub-page-form-top">
-        <p className="sub-eyebrow">{c.eyebrow}</p>
+        <p className="sub-eyebrow">{eventTypeLabel}</p>
         <h1 className="sub-heading">{projectName}</h1>
         <hr className="sub-divider" />
       </div>
 
       <div className="sub-page-form-scroll">
-        {coverImageUrl && <img src={coverImageUrl} alt="" className="sub-cover-image" />}
         <p className="sub-opening-text">{introText}</p>
+
+        {guidance && (
+          <div className="sub-intro-guidance">
+            <p className="sub-intro-guidance-heading">{guidance.stepsHeading}</p>
+            <ol className="sub-intro-guidance-steps">
+              {guidance.steps.map((step, i) => (
+                <li key={i}>
+                  <strong>{step.title}:</strong> {step.body}
+                </li>
+              ))}
+            </ol>
+            <p className="sub-intro-guidance-heading">{guidance.closingHeading}</p>
+            <p className="sub-intro-guidance-closing">{guidance.closingBody}</p>
+          </div>
+        )}
       </div>
 
       <div className="sub-page-form-bottom">

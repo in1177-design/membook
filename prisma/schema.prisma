@@ -66,6 +66,13 @@ model Project {
   defaultLanguage    Language      @default(HE)
   questionMode       QuestionMode  @default(ALL)
 
+  // A warm, guest-facing headline shown at the top of the intro step — distinct
+  // from `name` (the internal admin-facing project label). Falls back to `name`
+  // when unset so existing projects keep showing what they show today.
+  guestHeadlineHe String?
+  guestHeadlineRu String?
+  guestHeadlineEn String?
+
   // Shown at the top of the invitee's submission page. Per-language like
   // Question, since it's guest-facing content, not admin-only.
   introTextHe String?

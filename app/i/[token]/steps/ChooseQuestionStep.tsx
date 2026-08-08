@@ -1,64 +1,100 @@
-import { questionHelper, questionText, type Lang, type LangContent, type Question } from "../types";
+import { useState } from "react";
+import { questionText, type Lang, type LangContent, type Question } from "../types";
+import { QUESTION_SHORT_LABEL, STEP_OF_LABEL } from "../content";
+import StepBottomNav from "./StepBottomNav";
 
 const STEP_TITLE: Record<Lang, string> = {
-  HE: "בחר/י שאלה אחת לענות עליה",
+  HE: "בחרו שאלה אחת שתרצו לענות עליה",
   RU: "Выберите один вопрос, на который хотите ответить",
-  EN: "Choose one question to answer",
+  EN: "Choose one question you'd like to answer",
 };
-
-const CHOOSE_LABEL: Record<Lang, string> = {
-  HE: "אני רוצה לענות על זה",
-  RU: "Я хочу ответить на этот вопрос",
-  EN: "I want to answer this",
+const SURPRISE_LABEL: Record<Lang, string> = {
+  HE: "לא יודעים מה לבחור? בחרו עבורי שאלה",
+  RU: "Не знаете, что выбрать? Выберите вопрос за меня",
+  EN: "Not sure what to pick? Choose a question for me",
+};
+const CONTINUE_LABEL: Record<Lang, string> = {
+  HE: "המשך עם השאלה שבחרתי",
+  RU: "Продолжить с выбранным вопросом",
+  EN: "Continue with my question",
 };
 
 export default function ChooseQuestionStep({
   questions,
   lang,
   c,
+  selectedId: initialSelectedId,
   onChoose,
   onBack,
+  stepNumber,
+  stepTotal,
 }: {
   questions: Question[];
   lang: Lang;
   c: LangContent;
+  selectedId?: string | null;
   onChoose: (questionId: string) => void;
   onBack: () => void;
+  stepNumber: number;
+  stepTotal: number;
 }) {
+  const [selected, setSelected] = useState<string | null>(initialSelectedId ?? null);
+
+  function pickForMe() {
+    if (questions.length === 0) return;
+    const pick = questions[Math.floor(Math.random() * questions.length)];
+    setSelected(pick.id);
+  }
+
   return (
-    <div className="sub-page sub-page-form">
+    <div className="sub-page sub-page-form" dir={lang === "HE" ? "rtl" : "ltr"}>
       <div className="sub-page-form-top">
-        <p className="sub-eyebrow">{STEP_TITLE[lang]}</p>
+        <p className="sub-eyebrow">
+          {STEP_OF_LABEL[lang](stepNumber, stepTotal)} · {QUESTION_SHORT_LABEL[lang]}
+        </p>
+        <h1 className="sub-heading">{STEP_TITLE[lang]}</h1>
       </div>
 
       <div className="sub-page-form-scroll">
-        <div className="sub-questions">
-          {questions.map((q, i) => (
-            <div key={q.id} className="sub-q">
-              <div className="sub-q-head" style={{ cursor: "default" }}>
-                <span className="sub-q-avatar">{i + 1}</span>
-                <span className="sub-q-title" style={{ whiteSpace: "normal" }}>
-                  {questionText(q, lang)}
-                </span>
-              </div>
-              <div className="sub-q-body">
-                {questionHelper(q, lang) && <p className="sub-q-helper">{questionHelper(q, lang)}</p>}
-                <button type="button" className="sub-btn sub-btn-send" onClick={() => onChoose(q.id)}>
-                  {CHOOSE_LABEL[lang]}
-                </button>
-              </div>
-            </div>
-          ))}
-        </div>
-      </div>
+        <div className="sub-choose-list">
+          {questions.map((q) => {
+            const isSelected = selected === q.id;
+            return (
+              <button
+                type="button"
+                key={q.id}
+                className={`sub-choose-option${isSelected ? " selected" : ""}`}
+                onClick={() => setSelected(q.id)}
+              >
+                <span className="sub-choose-option-text">{questionText(q, lang)}</span>
+                <span className={`sub-choose-radio${isSelected ? " checked" : ""}`}>{isSelected && <CheckIcon />}</span>
+              </button>
+            );
+          })}
 
-      <div className="sub-page-form-bottom">
-        <div className="sub-actions">
-          <button type="button" className="sub-btn sub-btn-draft" onClick={onBack}>
-            {c.backLabel}
+          <button type="button" className="sub-choose-surprise" onClick={pickForMe}>
+            <span>{SURPRISE_LABEL[lang]}</span>
+            <span aria-hidden>✨</span>
           </button>
         </div>
       </div>
+
+      <StepBottomNav
+        lang={lang}
+        continueLabel={CONTINUE_LABEL[lang]}
+        continueDisabled={!selected}
+        onContinue={() => selected && onChoose(selected)}
+        backLabel={c.backLabel}
+        onBack={onBack}
+      />
     </div>
+  );
+}
+
+function CheckIcon() {
+  return (
+    <svg width="12" height="12" viewBox="0 0 16 16" fill="none">
+      <path d="M3 8.5 6.2 12 13 4.5" stroke="white" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+    </svg>
   );
 }

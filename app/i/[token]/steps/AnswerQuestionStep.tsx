@@ -1,10 +1,6 @@
 import { questionHelper, questionText, type Lang, type LangContent, type Question } from "../types";
-
-const STEP_TITLE: Record<Lang, string> = {
-  HE: "התשובה שלך",
-  RU: "Ваш ответ",
-  EN: "Your answer",
-};
+import { QUESTION_SHORT_LABEL, STEP_OF_LABEL } from "../content";
+import StepBottomNav from "./StepBottomNav";
 
 export default function AnswerQuestionStep({
   question,
@@ -16,6 +12,8 @@ export default function AnswerQuestionStep({
   onNext,
   isSaving,
   error,
+  stepNumber,
+  stepTotal,
 }: {
   question: Question;
   lang: Lang;
@@ -26,14 +24,16 @@ export default function AnswerQuestionStep({
   onNext: () => void;
   isSaving: boolean;
   error: string | null;
+  stepNumber: number;
+  stepTotal: number;
 }) {
   return (
     <div className="sub-page sub-page-form">
       <div className="sub-page-form-top">
-        <p className="sub-eyebrow">{STEP_TITLE[lang]}</p>
-        <h1 className="sub-heading" style={{ fontSize: 19 }}>
-          {questionText(question, lang)}
-        </h1>
+        <p className="sub-eyebrow">
+          {STEP_OF_LABEL[lang](stepNumber, stepTotal)} · {QUESTION_SHORT_LABEL[lang]}
+        </p>
+        <h1 className="sub-heading">{questionText(question, lang)}</h1>
         {questionHelper(question, lang) && <p className="sub-q-helper">{questionHelper(question, lang)}</p>}
       </div>
 
@@ -47,17 +47,15 @@ export default function AnswerQuestionStep({
         />
       </div>
 
-      <div className="sub-page-form-bottom">
-        {error && <p style={{ color: "#b00020", marginBottom: 12, fontSize: 13 }}>{error}</p>}
-        <div className="sub-actions">
-          <button type="button" className="sub-btn sub-btn-draft" onClick={onBack} disabled={isSaving}>
-            {c.backLabel}
-          </button>
-          <button type="button" className="sub-btn sub-btn-send" onClick={onNext} disabled={isSaving}>
-            {isSaving ? "..." : c.nextLabel}
-          </button>
-        </div>
-      </div>
+      <StepBottomNav
+        lang={lang}
+        continueLabel={c.nextLabel}
+        onContinue={onNext}
+        backLabel={c.backLabel}
+        onBack={onBack}
+        isSaving={isSaving}
+        error={error}
+      />
     </div>
   );
 }

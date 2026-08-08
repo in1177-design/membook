@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
+import Link from "next/link";
 import EditProjectForm from "../../EditProjectForm";
 import { sectionHeaderStyle, secondaryButtonStyle } from "../../formStyles";
 
@@ -50,13 +51,18 @@ export default function ProjectSettingsView({ project, eventTypeOptions, questio
 
   return (
     <div style={{ display: "grid", gap: 20 }}>
-      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 12 }}>
         <h2 style={sectionHeaderStyle}>פרטי הפרויקט</h2>
-        {mode === "view" && (
-          <button type="button" onClick={() => setMode("edit")} style={secondaryButtonStyle}>
-            עריכה
-          </button>
-        )}
+        <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
+          <Link href={`/admin/projects/${project.id}/build`} style={{ fontSize: 13, fontWeight: 600, color: "#4a6c9b" }}>
+            נסי את דף הבנייה החדש (בטא) →
+          </Link>
+          {mode === "view" && (
+            <button type="button" onClick={() => setMode("edit")} style={secondaryButtonStyle}>
+              עריכה
+            </button>
+          )}
+        </div>
       </div>
 
       <EditProjectForm

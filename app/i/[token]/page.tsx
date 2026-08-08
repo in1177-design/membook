@@ -3,78 +3,9 @@ import { prisma } from "../../../lib/prisma";
 import { detectDeviceType, detectIsBot } from "../../../lib/tracking";
 import { isPastGracePeriod } from "../../../lib/linkValidity";
 import SubmissionWizard from "./SubmissionWizard";
+import { CONTENT, PICK_ONE_FALLBACK_TEXT, introGuidanceFor, eventTypeLabelFor } from "./content";
 
 export const dynamic = "force-dynamic";
-
-export const CONTENT: Record<
-  string,
-  {
-    eyebrow: string;
-    intro: string;
-    photoLabel: string;
-    photoHint: string;
-    submitLabel: string;
-    dateLocationLabel: string;
-    dateLocationPlaceholder: string;
-    backToEditLabel: string;
-    answersHeading: string;
-    startLabel: string;
-    nextLabel: string;
-    backLabel: string;
-  }
-> = {
-  HE: {
-    eyebrow: "אלבום זיכרון",
-    intro: "שמחים שהצטרפת! נשמח אם תעני על השאלות למטה.",
-    photoLabel: "לחצי או גררי להעלאת תמונה",
-    photoHint: "JPG · PNG · WEBP",
-    submitLabel: "אישור ושליחה",
-    dateLocationLabel: "תאריך ומקום",
-    dateLocationPlaceholder: "למשל: יולי 2026 · תל אביב",
-    backToEditLabel: "חזרה לעריכה",
-    answersHeading: "הסיפור שלך",
-    startLabel: "בואי נתחיל",
-    nextLabel: "הבא",
-    backLabel: "הקודם",
-  },
-  RU: {
-    eyebrow: "Альбом памяти",
-    intro: "Мы рады, что вы с нами! Пожалуйста, ответьте на вопросы ниже.",
-    photoLabel: "Нажмите или перетащите фото сюда",
-    photoHint: "JPG · PNG · WEBP",
-    submitLabel: "Подтвердить и отправить",
-    dateLocationLabel: "Дата и место",
-    dateLocationPlaceholder: "напр. июль 2026 · Тель-Авив",
-    backToEditLabel: "Вернуться к редактированию",
-    answersHeading: "Ваша история",
-    startLabel: "Начнём",
-    nextLabel: "Далее",
-    backLabel: "Назад",
-  },
-  EN: {
-    eyebrow: "Memory album",
-    intro: "So glad you're here! Please answer the questions below.",
-    photoLabel: "Click or drag to upload",
-    photoHint: "JPG · PNG · WEBP",
-    submitLabel: "Confirm & submit",
-    dateLocationLabel: "Date & location",
-    dateLocationPlaceholder: "e.g. July 2026 · Tel Aviv",
-    backToEditLabel: "Back to editing",
-    answersHeading: "Your story",
-    startLabel: "Let's begin",
-    nextLabel: "Next",
-    backLabel: "Back",
-  },
-};
-
-// Fallback for the PICK_ONE-only, per-language photo-request and blessing
-// guidance text, used when a project hasn't set its own wording yet — mirrors
-// CONTENT.*.photoLabel since that's the closest existing equivalent.
-export const PICK_ONE_FALLBACK_TEXT: Record<string, { photoRequest: string; blessingPrompt: string }> = {
-  HE: { photoRequest: CONTENT.HE.photoLabel, blessingPrompt: "כמה מילים לברכה..." },
-  RU: { photoRequest: CONTENT.RU.photoLabel, blessingPrompt: "Несколько слов поздравления..." },
-  EN: { photoRequest: CONTENT.EN.photoLabel, blessingPrompt: "A few words of blessing..." },
-};
 
 export default async function InviteePage({ params }: { params: Promise<{ token: string }> }) {
   const { token } = await params;
@@ -154,6 +85,12 @@ export default async function InviteePage({ params }: { params: Promise<{ token:
     existingAnswer: existingAnswers.get(q.id) ?? "",
   }));
 
+  const headlineTexts = {
+    HE: project.guestHeadlineHe ?? project.name,
+    RU: project.guestHeadlineRu ?? project.guestHeadlineHe ?? project.name,
+    EN: project.guestHeadlineEn ?? project.guestHeadlineHe ?? project.name,
+  };
+
   const introTexts = {
     HE: project.introTextHe ?? CONTENT.HE.intro,
     RU: project.introTextRu ?? project.introTextHe ?? CONTENT.RU.intro,
@@ -172,6 +109,12 @@ export default async function InviteePage({ params }: { params: Promise<{ token:
     EN: project.blessingPromptTextEn ?? project.blessingPromptTextHe ?? PICK_ONE_FALLBACK_TEXT.EN.blessingPrompt,
   };
 
+  const eventTypeLabels = {
+    HE: eventTypeLabelFor(project.eventType, "HE"),
+    RU: eventTypeLabelFor(project.eventType, "RU"),
+    EN: eventTypeLabelFor(project.eventType, "EN"),
+  };
+
   return (
     <>
       <style>{`
@@ -181,9 +124,11 @@ export default async function InviteePage({ params }: { params: Promise<{ token:
         <main style={{ maxWidth: 1048, margin: "0 auto", padding: "40px 24px" }}>
           <SubmissionWizard
             token={token}
-            projectName={project.name}
+            headlineTexts={headlineTexts}
             content={CONTENT}
             introTexts={introTexts}
+            introGuidance={introGuidanceFor(project.questionMode)}
+            eventTypeLabels={eventTypeLabels}
             photoRequestTexts={photoRequestTexts}
             blessingPromptTexts={blessingPromptTexts}
             coverImageUrl={project.coverImageUrl}

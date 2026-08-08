@@ -14,6 +14,8 @@ export default function PreviewStep({
   onConfirm,
   isSubmitting,
   error,
+  stepNumber,
+  stepTotal,
 }: {
   content: Record<Lang, LangContent>;
   lang: Lang;
@@ -27,33 +29,25 @@ export default function PreviewStep({
   onConfirm: () => void;
   isSubmitting: boolean;
   error: string | null;
+  stepNumber: number;
+  stepTotal: number;
 }) {
-  const c = content[lang];
   return (
-    <>
-      <SubmissionBook
-        content={content}
-        lang={lang}
-        answers={answers}
-        questions={questions}
-        dateLocation={dateLocation}
-        photoUrl={photoUrl}
-        blessingText={blessingText}
-        blessingSignedBy={blessingSignedBy}
-        onBackToEdit={onBackToEdit}
-      />
-      <div style={{ maxWidth: 1000, margin: "16px auto 0", textAlign: "center" }}>
-        {error && <p style={{ color: "#b00020", marginBottom: 12, fontSize: 13 }}>{error}</p>}
-        <button
-          type="button"
-          className="sub-btn sub-btn-send"
-          style={{ maxWidth: 280 }}
-          onClick={onConfirm}
-          disabled={isSubmitting}
-        >
-          {isSubmitting ? "..." : c.submitLabel}
-        </button>
-      </div>
-    </>
+    <SubmissionBook
+      content={content}
+      lang={lang}
+      answers={answers}
+      questions={questions}
+      dateLocation={dateLocation}
+      photoUrl={photoUrl}
+      blessingText={blessingText}
+      blessingSignedBy={blessingSignedBy}
+      onBackToEdit={onBackToEdit}
+      onConfirm={onConfirm}
+      isSubmitting={isSubmitting}
+      error={error}
+      stepNumber={stepNumber}
+      stepTotal={stepTotal}
+    />
   );
 }

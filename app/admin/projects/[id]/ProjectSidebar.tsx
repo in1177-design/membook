@@ -19,16 +19,18 @@ export default function ProjectSidebar({ allProjects }: Props) {
   const pathname = usePathname();
   const [collapsed, setCollapsed] = useState(false);
 
-  const urlProjectId = pathname.match(/^\/admin\/projects\/([^/]+)(?:\/(?:album|preview|settings))?$/)?.[1];
+  const urlProjectId = pathname.match(/^\/admin\/projects\/([^/]+)(?:\/(?:album|preview|settings|build))?$/)?.[1];
   const isAllProjectsRoute = pathname === "/admin/projects";
   const isAlbumRoute = /^\/admin\/projects\/[^/]+\/album$/.test(pathname);
   const isPreviewRoute = /^\/admin\/projects\/[^/]+\/preview$/.test(pathname);
   const isSettingsRoute = /^\/admin\/projects\/[^/]+\/settings$/.test(pathname);
+  const isBuildRoute = /^\/admin\/projects\/[^/]+\/build$/.test(pathname);
   const activeProject = allProjects.find((p) => p.id === urlProjectId) ?? allProjects[0];
-  const isStoryActive = activeProject.id === urlProjectId && !isAlbumRoute && !isPreviewRoute && !isSettingsRoute;
+  const isStoryActive = activeProject.id === urlProjectId && !isAlbumRoute && !isPreviewRoute && !isSettingsRoute && !isBuildRoute;
   const isAlbumActive = activeProject.id === urlProjectId && isAlbumRoute;
   const isPreviewActive = activeProject.id === urlProjectId && isPreviewRoute;
   const isSettingsActive = activeProject.id === urlProjectId && isSettingsRoute;
+  const isBuildActive = activeProject.id === urlProjectId && isBuildRoute;
   const { id: projectId, name: projectName, totalParticipants, submittedCount } = activeProject;
 
   const pct = totalParticipants > 0 ? Math.round((submittedCount / totalParticipants) * 100) : 0;
@@ -157,6 +159,13 @@ export default function ProjectSidebar({ allProjects }: Props) {
             collapsed={collapsed}
             active={isSettingsActive}
             onClick={isSettingsActive ? undefined : () => router.push(`/admin/projects/${projectId}/settings`)}
+          />
+          <SidebarItem
+            icon={<BuildIcon />}
+            label="בניית טופס"
+            collapsed={collapsed}
+            active={isBuildActive}
+            onClick={isBuildActive ? undefined : () => router.push(`/admin/projects/${projectId}/build`)}
           />
           <SidebarItem
             icon={<LayersIcon />}
@@ -352,6 +361,20 @@ function SettingsIcon() {
         strokeWidth="1.3"
         strokeLinecap="round"
       />
+    </svg>
+  );
+}
+
+function BuildIcon() {
+  return (
+    <svg width="17" height="17" viewBox="0 0 20 20" fill="none" style={{ flexShrink: 0 }}>
+      <path
+        d="M13.3 3.3 16.7 6.7 7.5 15.9 3.3 16.7 4.1 12.5 13.3 3.3Z"
+        stroke="#d4d2cd"
+        strokeWidth="1.3"
+        strokeLinejoin="round"
+      />
+      <path d="M11.3 5.3 14.7 8.7" stroke="#d4d2cd" strokeWidth="1.3" />
     </svg>
   );
 }

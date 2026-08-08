@@ -1,7 +1,7 @@
 import { notFound } from "next/navigation";
 import { prisma } from "../../../../../lib/prisma";
 import SubmissionWizard from "../../../../i/[token]/SubmissionWizard";
-import { CONTENT, PICK_ONE_FALLBACK_TEXT } from "../../../../i/[token]/page";
+import { CONTENT, PICK_ONE_FALLBACK_TEXT, introGuidanceFor, eventTypeLabelFor } from "../../../../i/[token]/content";
 
 export const dynamic = "force-dynamic";
 
@@ -26,6 +26,12 @@ export default async function ProjectFormPreviewPage({ params }: { params: Promi
     existingAnswer: "",
   }));
 
+  const headlineTexts = {
+    HE: project.guestHeadlineHe ?? project.name,
+    RU: project.guestHeadlineRu ?? project.guestHeadlineHe ?? project.name,
+    EN: project.guestHeadlineEn ?? project.guestHeadlineHe ?? project.name,
+  };
+
   const introTexts = {
     HE: project.introTextHe ?? CONTENT.HE.intro,
     RU: project.introTextRu ?? project.introTextHe ?? CONTENT.RU.intro,
@@ -44,14 +50,22 @@ export default async function ProjectFormPreviewPage({ params }: { params: Promi
     EN: project.blessingPromptTextEn ?? project.blessingPromptTextHe ?? PICK_ONE_FALLBACK_TEXT.EN.blessingPrompt,
   };
 
+  const eventTypeLabels = {
+    HE: eventTypeLabelFor(project.eventType, "HE"),
+    RU: eventTypeLabelFor(project.eventType, "RU"),
+    EN: eventTypeLabelFor(project.eventType, "EN"),
+  };
+
   return (
     <main>
       <h1 style={{ fontSize: 24, margin: "0 0 12px" }}>תצוגה מקדימה של הטופס</h1>
       <SubmissionWizard
         token="preview"
-        projectName={project.name}
+        headlineTexts={headlineTexts}
         content={CONTENT}
         introTexts={introTexts}
+        introGuidance={introGuidanceFor(project.questionMode)}
+        eventTypeLabels={eventTypeLabels}
         photoRequestTexts={photoRequestTexts}
         blessingPromptTexts={blessingPromptTexts}
         coverImageUrl={project.coverImageUrl}
