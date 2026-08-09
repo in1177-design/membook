@@ -18,10 +18,12 @@ function ChevronIcon({ lang, forward = false, color }: { lang: Lang; forward?: b
   );
 }
 
-// Shared bottom nav for step pages: one full-width primary "continue" button
-// plus a plain-text "back" link below it — the pattern from the Step 3
-// (choose question) mockup, now reused across steps instead of the older
-// side-by-side draft/send button pair.
+// Shared bottom nav for step pages. Mobile (default): one full-width primary
+// "continue" button plus a compact bordered "back" link below it — the
+// pattern from designe/final figma, with a subtle border added to the back
+// link (not the Figma reference's bare text) for tap-discoverability.
+// Desktop: the original 2-buttons-in-a-row layout, unchanged — see the
+// @container block in SubmissionWizard's WIZARD_EXTRA_STYLES.
 export default function StepBottomNav({
   lang,
   continueLabel,

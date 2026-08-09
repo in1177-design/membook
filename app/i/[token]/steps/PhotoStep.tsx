@@ -198,14 +198,16 @@ export function PhotoDropPanel({
   photoPreviewUrl,
   coverImageUrl,
   onPhotoChange,
+  className,
 }: {
   lang: Lang;
   photoPreviewUrl: string | null;
   coverImageUrl?: string | null;
   onPhotoChange: (file: File | null) => void;
+  className?: string;
 }) {
   return (
-    <div className="sub-page sub-page-photo">
+    <div className={`sub-page sub-page-photo${className ? ` ${className}` : ""}`}>
       <label className={`sub-photo-drop${photoPreviewUrl ? " has-photo" : ""}`}>
         {photoPreviewUrl ? (
           <>

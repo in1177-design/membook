@@ -168,18 +168,18 @@ export default function ProjectSidebar({ allProjects }: Props) {
             onClick={isBuildActive ? undefined : () => router.push(`/admin/projects/${projectId}/build`)}
           />
           <SidebarItem
-            icon={<LayersIcon />}
-            label="מוזמנים"
-            collapsed={collapsed}
-            active={isStoryActive}
-            onClick={isStoryActive ? undefined : () => router.push(`/admin/projects/${projectId}`)}
-          />
-          <SidebarItem
             icon={<EyeIcon />}
             label="תצוגה מקדימה של הטופס"
             collapsed={collapsed}
             active={isPreviewActive}
             onClick={isPreviewActive ? undefined : () => router.push(`/admin/projects/${projectId}/preview`)}
+          />
+          <SidebarItem
+            icon={<LayersIcon />}
+            label="מוזמנים"
+            collapsed={collapsed}
+            active={isStoryActive}
+            onClick={isStoryActive ? undefined : () => router.push(`/admin/projects/${projectId}`)}
           />
           <SidebarItem
             icon={<ColumnsIcon />}

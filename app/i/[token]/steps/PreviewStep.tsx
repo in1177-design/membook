@@ -1,5 +1,5 @@
 import SubmissionBook from "../SubmissionBook";
-import type { Lang, LangContent, Question } from "../types";
+import type { Lang, LangContent, Question, StepId } from "../types";
 
 export default function PreviewStep({
   content,
@@ -8,9 +8,11 @@ export default function PreviewStep({
   questions,
   dateLocation,
   photoUrl,
+  photoFileName,
   blessingText,
   blessingSignedBy,
   onBackToEdit,
+  onEdit,
   onConfirm,
   isSubmitting,
   error,
@@ -23,9 +25,11 @@ export default function PreviewStep({
   questions: Question[];
   dateLocation: string;
   photoUrl: string | null;
+  photoFileName?: string | null;
   blessingText?: string | null;
   blessingSignedBy?: string | null;
   onBackToEdit: () => void;
+  onEdit?: (step: Extract<StepId, "blessing" | "answerQuestion" | "photo">) => void;
   onConfirm: () => void;
   isSubmitting: boolean;
   error: string | null;
@@ -40,9 +44,11 @@ export default function PreviewStep({
       questions={questions}
       dateLocation={dateLocation}
       photoUrl={photoUrl}
+      photoFileName={photoFileName}
       blessingText={blessingText}
       blessingSignedBy={blessingSignedBy}
       onBackToEdit={onBackToEdit}
+      onEdit={onEdit}
       onConfirm={onConfirm}
       isSubmitting={isSubmitting}
       error={error}

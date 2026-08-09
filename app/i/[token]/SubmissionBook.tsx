@@ -24,14 +24,15 @@ const PREVIEW_SUBTEXT: Record<Lang, string> = {
   EN: "Go over the details and make sure everything looks the way you wanted.",
 };
 const SEND_LABEL: Record<Lang, string> = { HE: "שליחה", RU: "Отправить", EN: "Send" };
-const SECTION_BLESSING_LABEL: Record<Lang, string> = { HE: "הברכה", RU: "Пожелание", EN: "Blessing" };
-const SECTION_QUESTION_LABEL: Record<Lang, string> = { HE: "השאלה שבחרתם", RU: "Выбранный вопрос", EN: "Your chosen question" };
-const SECTION_PHOTO_LABEL: Record<Lang, string> = { HE: "התמונה שצירפתם", RU: "Прикреплённое фото", EN: "The photo you attached" };
+const SECTION_BLESSING_LABEL: Record<Lang, string> = { HE: "הברכה שלכם", RU: "Ваше пожелание", EN: "Your blessing" };
+const SECTION_QUESTION_LABEL: Record<Lang, string> = { HE: "השאלה והתשובה", RU: "Вопрос и ответ", EN: "Question and answer" };
+const SECTION_PHOTO_LABEL: Record<Lang, string> = { HE: "התמונה שלכם", RU: "Ваше фото", EN: "Your photo" };
 const PHOTO_NOTE: Record<Lang, string> = {
   HE: "אפשר לשנות כל פרט לפני השליחה.",
   RU: "Перед отправкой можно изменить любую деталь.",
   EN: "You can change any detail before sending.",
 };
+const EDIT_LABEL: Record<Lang, string> = { HE: "עריכה", RU: "Изменить", EN: "Edit" };
 // Shown instead of real content only in the admin build page's generic
 // template preview (isAdminPreview) — there's no real guest yet to have
 // written anything, so every section just says where their text will go.
@@ -42,16 +43,57 @@ const ADMIN_PLACEHOLDER: Record<Lang, string> = {
 };
 
 export const BOOK_STYLES = `
-  .sub-book-outer { }
-  .sub-book { display: block; background: transparent; }
+  /* container-type here (rather than a @media viewport query below) means the
+     book's two-column layout responds to how wide ITS OWN box is, not the
+     browser window — so a narrower wrapper (e.g. the admin preview pages'
+     desktop/mobile toggle) actually reflows to the single-column mobile
+     layout instead of just squeezing the two-column layout into less room. */
+  .sub-book-outer { container-type: inline-size; }
+  /* flex-column (not block) so the order property below can actually move
+     the photo panel — order has no effect outside a flex/grid container.
+     Mobile default: solid white (the page behind it, .invitee-bg, is a warm
+     cream — the mockups show a clean white content area below the hero, not
+     that cream showing through). Desktop's white background further down is
+     unaffected (was already white there). */
+  .sub-book { display: flex; flex-direction: column; background: #fff; }
   .sub-page { padding: 0; }
   .sub-page-form { padding-top: 8px; }
   .sub-spine { display: none; }
 
+  /* Mobile default: the in-book photo panel (guest's own photo, side-by-side
+     with the form at desktop) is hidden entirely — its mobile role is taken
+     over by .sub-mobile-hero below (a full-width banner rendered ahead of
+     the book on the 3 steps that have one: intro, preview, done) and, on the
+     preview step specifically, by the small thumbnail inside its own review
+     card (see BookTextPage). .sub-page-photo-hide-mobile is now redundant
+     with this default but harmless — left alone rather than touching every
+     call site that still passes it. */
+  .sub-page-photo { display: none; }
+  .sub-page-photo-hide-mobile { display: none; }
+
+  /* Full-bleed hero banner (intro / preview / done, mobile only) — a
+     decorative photo (project cover, or the guest's own once uploaded, per
+     each call site) with a wave cut along its bottom edge. Rendered as a
+     sibling ahead of .sub-book inside .sub-book-outer specifically so it can
+     participate in the same container-query scope (a plain sibling of
+     .sub-book-outer couldn't respond to it). */
+  .sub-mobile-hero { position: relative; margin: 0 -24px 20px; overflow: hidden; }
+  .sub-mobile-hero img { display: block; width: 100%; height: 230px; object-fit: cover; }
+  .sub-mobile-hero svg { position: absolute; bottom: -1px; left: 0; width: 100%; height: 26px; display: block; }
+
+  /* Step 5 review card thumbnail + per-card edit link. */
+  .sub-preview-photo-row { display: flex; align-items: center; gap: 12px; }
+  .sub-preview-photo-thumb { flex-shrink: 0; width: 56px; height: 56px; border-radius: 8px; object-fit: cover; background: #f1effb; }
+  .sub-preview-photo-name { font-size: 14px; color: #666; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .sub-preview-edit-link {
+    display: inline-flex; align-items: center; gap: 4px; font-size: 13px; font-weight: 700;
+    color: #5838b8; background: none; border: none; padding: 0; cursor: pointer;
+  }
+
   .sub-divider { border: none; border-top: 1px solid #e8e6e2; margin: 0 0 20px; }
   .sub-field-label { display: block; font-size: 11px; font-weight: 700; letter-spacing: 1.2px; text-transform: uppercase; color: #9a9a9a; margin-bottom: 8px; }
 
-  .sub-photo-drop { position: relative; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 10px; min-height: 260px; cursor: pointer; border-radius: 14px; border: 1.5px dashed #d8d6d1; background: #fafaf9; text-align: center; overflow: hidden; }
+  .sub-photo-drop { position: relative; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 10px; min-height: 260px; cursor: pointer; border-radius: 14px; border: 1.5px dashed #d8d6d1; background: #f5f3ff; text-align: center; overflow: hidden; }
   .sub-photo-drop.has-photo { cursor: default; border-style: solid; border-color: #e6e4e0; background: #eee; min-height: 320px; }
   .sub-photo-icon-circle { width: 44px; height: 44px; border-radius: 50%; background: #eceaf7; display: flex; align-items: center; justify-content: center; color: #6a75c9; }
   .sub-photo-text { font-size: 14px; font-weight: 600; color: #444; }
@@ -60,7 +102,7 @@ export const BOOK_STYLES = `
   .sub-photo-change { position: relative; z-index: 1; margin-top: auto; font-size: 12px; font-weight: 600; color: white; background: rgba(0,0,0,0.55); padding: 6px 14px; border-radius: 999px; }
 
   .sub-summary-top { display: flex; justify-content: flex-end; margin-bottom: 40px; }
-  .sub-back-btn { display: inline-flex; align-items: center; gap: 6px; font-size: 13px; font-weight: 700; padding: 10px 18px; border-radius: 999px; border: 1px solid #d8d6d1; background: white; color: #2f3f8f; cursor: pointer; }
+  .sub-back-btn { display: inline-flex; align-items: center; gap: 6px; font-size: 13px; font-weight: 700; padding: 10px 18px; border-radius: 999px; border: 1px solid #d8d6d1; background: white; color: #5838b8; cursor: pointer; }
   .sub-summary-body { display: grid; gap: 20px; text-align: center; }
   .sub-summary-heading { font-size: 15px; font-style: italic; color: #8a7f6f; margin: 0 0 4px; font-family: ${headingFont.style.fontFamily}; }
   .sub-summary-answer { font-size: 16px; color: #333; line-height: 1.9; margin: 0; white-space: pre-wrap; text-align: center; }
@@ -68,22 +110,42 @@ export const BOOK_STYLES = `
   .sub-summary-dateloc .sub-field-label { text-align: center; }
   .sub-date-display { display: inline-block; padding: 12px 14px; font-size: 14px; border: 1px solid #e6e4e0; border-radius: 10px; background: #f7f6f4; color: #555; }
 
-  .sub-preview-subtext { font-size: 13px; color: #8a8a8a; margin: 6px 0 0; }
+  .sub-preview-subtext { font-size: 16px; color: #8a8a8a; margin: 6px 0 0; }
   .sub-preview-section { border: 1px solid #ece9e4; border-radius: 14px; padding: 16px 18px; margin-bottom: 14px; }
-  .sub-preview-section-title { display: flex; align-items: center; gap: 8px; font-size: 14px; font-weight: 700; color: #2b2b2b; margin: 0 0 10px; }
-  .sub-preview-section-icon { flex-shrink: 0; width: 26px; height: 26px; border-radius: 50%; background: #f1effb; display: flex; align-items: center; justify-content: center; color: #7c6fdc; }
-  .sub-preview-section-body { font-size: 14px; color: #666; line-height: 1.7; margin: 0; white-space: pre-wrap; }
+  .sub-preview-section-head { display: flex; align-items: center; justify-content: space-between; gap: 8px; margin: 0 0 10px; }
+  .sub-preview-section-title { display: flex; align-items: center; gap: 8px; font-size: 14px; font-weight: 700; color: #2b2b2b; margin: 0; }
+  .sub-preview-section-icon { flex-shrink: 0; width: 26px; height: 26px; border-radius: 50%; background: #f1effb; display: flex; align-items: center; justify-content: center; color: #5838b8; }
+  .sub-preview-section-body { font-size: 16px; color: #666; line-height: 1.7; margin: 0; white-space: pre-wrap; }
   .sub-preview-question-text { font-size: 14px; font-weight: 700; color: #2b2b2b; margin: 0 0 10px; }
-  .sub-preview-quote-box { border: 1px solid #ece9e4; border-radius: 10px; background: #faf9f7; padding: 14px 16px; font-size: 14px; color: #555; line-height: 1.7; white-space: pre-wrap; }
-  .sub-preview-actions { display: flex; gap: 10px; padding-top: 4px; }
-  .sub-preview-btn-back { flex: 1; padding: 12px 0; border-radius: 10px; border: 1px solid #d8d6d1; background: white; color: #333; font-size: 14px; font-weight: 700; cursor: pointer; }
-  .sub-preview-btn-send { flex: 1; padding: 12px 0; border-radius: 10px; border: none; background: #7c4fd1; color: white; font-size: 14px; font-weight: 700; cursor: pointer; display: flex; align-items: center; justify-content: center; gap: 8px; }
+  .sub-preview-quote-box { border-radius: 10px; padding: 14px 16px; font-size: 16px; color: #555; line-height: 1.7; white-space: pre-wrap; }
+
+  /* Mobile default: both buttons full width, one below the other — same
+     pattern as StepBottomNav (WIZARD_EXTRA_STYLES). Desktop keeps the
+     original 2-button side-by-side row, equal width (@container below). */
+  /* column-reverse (not column) so the existing JSX order [back, send] —
+     kept as-is to leave desktop's row layout/comment untouched — still puts
+     the primary "send" button on top on mobile, back link below it. */
+  .sub-preview-actions { display: flex; flex-direction: column-reverse; align-items: stretch; gap: 10px; padding-top: 4px; }
+  .sub-preview-btn-send { width: 100%; padding: 13px 0; border-radius: 10px; border: none; background: #5838b8; color: white; font-size: 14px; font-weight: 700; cursor: pointer; display: flex; align-items: center; justify-content: center; gap: 8px; }
+  /* Border darkened from #e6e4e0 to #c9c7c2 — the lighter tone read as
+     barely-there next to the solid purple "send" button above it. */
+  .sub-preview-btn-back { width: 100%; box-sizing: border-box; padding: 12px 20px; border-radius: 10px; border: 1px solid #c9c7c2; background: none; color: #5838b8; font-size: 14px; font-weight: 700; cursor: pointer; }
   .sub-preview-btn-send:disabled, .sub-preview-btn-back:disabled { opacity: 0.6; cursor: default; }
 
-  @media (min-width: 860px) {
+  @container (min-width: 860px) {
+    .sub-preview-actions { flex-direction: row; gap: 10px; }
+    /* Bug fix: .sub-preview-btn-send's mobile-default width:100% was never
+       reset here, so at desktop it still tried to fill the whole row,
+       squeezing .sub-preview-btn-back down to a tiny box next to it. */
+    .sub-preview-btn-send { width: auto; flex: 1; }
+    .sub-preview-btn-back { flex: 1; padding: 12px 0; border-radius: 10px; border: 1px solid #d8d6d1; color: #333; }
+    .sub-preview-btn-send { background: #2f3f8f; }
+    .sub-mobile-hero { display: none; }
+    .sub-photo-drop { background: #fafaf9; }
     .sub-book-outer { padding: 22px 0; border-radius: 20px; }
     .sub-book {
       display: flex;
+      flex-direction: row;
       align-items: stretch;
       position: relative;
       background: white;
@@ -99,7 +161,7 @@ export const BOOK_STYLES = `
     .sub-page-form-top { flex-shrink: 0; }
     .sub-page-form-scroll { flex: 1; min-height: 0; overflow-y: auto; margin: 4px -8px 0; padding: 0 8px; }
     .sub-page-form-bottom { flex-shrink: 0; padding-top: 16px; }
-    .sub-page-photo { padding: 28px; background: white; display: flex; }
+    .sub-page-photo { padding: 28px; background: white; display: flex; order: 0; }
     .sub-photo-drop { flex: 1; min-height: 0; }
     .sub-spine {
       display: block;
@@ -116,9 +178,9 @@ export const BOOK_STYLES = `
   }
 `;
 
-export function PhotoPage({ photoUrl }: { photoUrl: string | null }) {
+export function PhotoPage({ photoUrl, className }: { photoUrl: string | null; className?: string }) {
   return (
-    <div className="sub-page sub-page-photo">
+    <div className={`sub-page sub-page-photo${className ? ` ${className}` : ""}`}>
       <div className={`sub-photo-drop${photoUrl ? " has-photo" : ""}`}>
         {photoUrl && <img src={photoUrl} alt="" className="sub-photo-img" />}
       </div>
@@ -149,6 +211,15 @@ function QuestionIcon() {
   );
 }
 
+function ChatIcon() {
+  return (
+    <svg width="14" height="14" viewBox="0 0 16 16" fill="none">
+      <rect x="2" y="3" width="12" height="8" rx="2" stroke="currentColor" strokeWidth="1.4" />
+      <path d="M5.5 11v2.5L8.5 11" stroke="currentColor" strokeWidth="1.4" strokeLinejoin="round" />
+    </svg>
+  );
+}
+
 function PhotoIcon() {
   return (
     <svg width="14" height="14" viewBox="0 0 16 16" fill="none">
@@ -167,6 +238,43 @@ function SendIcon() {
   );
 }
 
+function PencilIcon() {
+  return (
+    <svg width="12" height="12" viewBox="0 0 16 16" fill="none">
+      <path
+        d="M11.3 2.3a1.5 1.5 0 0 1 2.1 2.1L5.5 12.3l-2.8.7.7-2.8 7.9-7.9Z"
+        stroke="currentColor"
+        strokeWidth="1.3"
+        strokeLinejoin="round"
+      />
+    </svg>
+  );
+}
+
+// The wave cut along a mobile hero photo's bottom edge — a single smooth
+// S-curve, filled to match the page background, stretched (preserveAspectRatio
+// "none") to whatever width the hero happens to render at.
+function HeroWave() {
+  return (
+    <svg viewBox="0 0 200 20" preserveAspectRatio="none">
+      <path d="M0,12 C50,22 150,2 200,12 L200,20 L0,20 Z" fill="#fdfcfb" />
+    </svg>
+  );
+}
+
+// Full-bleed hero banner used ahead of the book on intro/preview/done
+// (mobile only — see .sub-mobile-hero in BOOK_STYLES). Renders nothing when
+// there's no image to show, rather than an empty banner.
+export function MobileHero({ src }: { src: string | null | undefined }) {
+  if (!src) return null;
+  return (
+    <div className="sub-mobile-hero">
+      <img src={src} alt="" />
+      <HeroWave />
+    </div>
+  );
+}
+
 // The text-side page only (no outer book/spine/photo) — a real guest's book
 // always pairs this with a photo page (SubmissionBook below does that), but
 // the admin build page already has its own outer "book" shell with its own
@@ -181,7 +289,10 @@ export function BookTextPage({
   dateLocation,
   blessingText,
   blessingSignedBy,
+  photoUrl,
+  photoFileName,
   onBackToEdit,
+  onEdit,
   onConfirm,
   isSubmitting,
   error,
@@ -196,7 +307,19 @@ export function BookTextPage({
   dateLocation: string;
   blessingText?: string | null;
   blessingSignedBy?: string | null;
+  // Only used by the "before sending" review cards (Step 5) — the guest's
+  // own attached photo, shown as a small thumbnail in its own card rather
+  // than the big side panel. Its filename, when known (fresh upload this
+  // session), is shown alongside it; unknown (e.g. a photo already uploaded
+  // in an earlier visit) simply omits that line.
+  photoUrl?: string | null;
+  photoFileName?: string | null;
   onBackToEdit: () => void;
+  // Per-card "edit" links on the Step 5 review — jumps straight back to the
+  // step that owns that card. Optional: omitted (e.g. the admin build page's
+  // generic template preview) simply hides the links, since there's no real
+  // wizard state to jump to there.
+  onEdit?: (step: "blessing" | "answerQuestion" | "photo") => void;
   // Present only for the real "before sending" preview (Step 5) — its
   // absence is how this component tells that apart from the plainer,
   // already-submitted "done" screen, which reuses it without these.
@@ -225,12 +348,20 @@ export function BookTextPage({
   const summary = isBeforeSending ? (
     <div>
       <div className="sub-preview-section">
-        <p className="sub-preview-section-title">
-          <span className="sub-preview-section-icon">
-            <HeartIcon />
-          </span>
-          {SECTION_BLESSING_LABEL[lang]}
-        </p>
+        <div className="sub-preview-section-head">
+          <p className="sub-preview-section-title">
+            <span className="sub-preview-section-icon">
+              <HeartIcon />
+            </span>
+            {SECTION_BLESSING_LABEL[lang]}
+          </p>
+          {onEdit && (
+            <button type="button" className="sub-preview-edit-link" onClick={() => onEdit("blessing")}>
+              <PencilIcon />
+              {EDIT_LABEL[lang]}
+            </button>
+          )}
+        </div>
         <p className="sub-preview-section-body">
           {isAdminPreview ? ADMIN_PLACEHOLDER[lang] : blessingText?.trim() || ADMIN_PLACEHOLDER[lang]}
         </p>
@@ -238,26 +369,47 @@ export function BookTextPage({
 
       {questionSections.map(({ q, answerText }) => (
         <div className="sub-preview-section" key={q.id}>
-          <p className="sub-preview-section-title">
-            <span className="sub-preview-section-icon">
-              <QuestionIcon />
-            </span>
-            {SECTION_QUESTION_LABEL[lang]}
-          </p>
+          <div className="sub-preview-section-head">
+            <p className="sub-preview-section-title">
+              <span className="sub-preview-section-icon">
+                <ChatIcon />
+              </span>
+              {SECTION_QUESTION_LABEL[lang]}
+            </p>
+            {onEdit && (
+              <button type="button" className="sub-preview-edit-link" onClick={() => onEdit("answerQuestion")}>
+                <PencilIcon />
+                {EDIT_LABEL[lang]}
+              </button>
+            )}
+          </div>
           <p className="sub-preview-question-text">{questionText(q, lang)}</p>
           <div className="sub-preview-quote-box">{answerText ?? ADMIN_PLACEHOLDER[lang]}</div>
         </div>
       ))}
 
-      <div className="sub-preview-section">
-        <p className="sub-preview-section-title">
-          <span className="sub-preview-section-icon">
-            <PhotoIcon />
-          </span>
-          {SECTION_PHOTO_LABEL[lang]}
-        </p>
-        <p className="sub-preview-section-body">{PHOTO_NOTE[lang]}</p>
-      </div>
+      {photoUrl && (
+        <div className="sub-preview-section">
+          <div className="sub-preview-section-head">
+            <p className="sub-preview-section-title">
+              <span className="sub-preview-section-icon">
+                <PhotoIcon />
+              </span>
+              {SECTION_PHOTO_LABEL[lang]}
+            </p>
+            {onEdit && (
+              <button type="button" className="sub-preview-edit-link" onClick={() => onEdit("photo")}>
+                <PencilIcon />
+                {EDIT_LABEL[lang]}
+              </button>
+            )}
+          </div>
+          <div className="sub-preview-photo-row">
+            <img src={photoUrl} alt="" className="sub-preview-photo-thumb" />
+            {photoFileName && <span className="sub-preview-photo-name">{photoFileName}</span>}
+          </div>
+        </div>
+      )}
     </div>
   ) : (
     <div className="sub-summary-body">
@@ -338,10 +490,11 @@ export default function SubmissionBook(
   const { photoUrl, ...pageProps } = props;
   return (
     <div className="sub-book-outer">
+      <MobileHero src={photoUrl} />
       <div className="sub-book">
-        <BookTextPage {...pageProps} />
+        <BookTextPage {...pageProps} photoUrl={photoUrl} />
         <div className="sub-spine" />
-        <PhotoPage photoUrl={photoUrl} />
+        <PhotoPage photoUrl={photoUrl} className="sub-page-photo-hide-mobile" />
       </div>
     </div>
   );

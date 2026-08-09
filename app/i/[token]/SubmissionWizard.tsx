@@ -1,7 +1,7 @@
 "use client";
 
 import { useReducer } from "react";
-import { BOOK_STYLES, PhotoPage } from "./SubmissionBook";
+import { BOOK_STYLES, PhotoPage, MobileHero } from "./SubmissionBook";
 import IntroStep from "./steps/IntroStep";
 import QuestionsStep from "./steps/QuestionsStep";
 import PhotoDateStep from "./steps/PhotoDateStep";
@@ -69,26 +69,59 @@ function wizardReducer(state: WizardState, action: WizardAction): WizardState {
 const STEP_ORDER_ALL: StepId[] = ["intro", "questions", "photoDate", "preview"];
 const STEP_ORDER_PICK_ONE: StepId[] = ["intro", "blessing", "chooseQuestion", "answerQuestion", "photo", "preview"];
 
+// PICK_ONE's chooseQuestion/answerQuestion are two screens for the same
+// logical "step 3" (choose a question, then write the answer) — displayed as
+// the same step number, matching the user's Figma reference
+// (designe/final figma/screen-3-question.png vs screen-3-question-1.png,
+// both captioned "שלב 3 מתוך 6"). Centralized here so the shared progress
+// bar and every step's own eyebrow always agree — previously each call site
+// hand-adjusted its own array index, and had drifted out of sync with the
+// shared progress bar above the book (which used the raw, un-adjusted
+// index+1 for every step).
+const STEP_DISPLAY_PICK_ONE: Partial<Record<StepId, number>> = {
+  intro: 1,
+  blessing: 2,
+  chooseQuestion: 3,
+  answerQuestion: 3,
+  photo: 4,
+  preview: 5,
+  done: 6,
+};
+const STEP_DISPLAY_TOTAL_PICK_ONE = 6;
+
 export const WIZARD_EXTRA_STYLES = `
   .sub-lang-switch { display: flex; align-items: center; gap: 8px; margin-bottom: 12px; }
   .sub-lang-switch-label { font-size: 11px; color: #9a9a9a; }
   .sub-lang-btn { font-size: 12px; font-weight: 700; padding: 5px 12px; border-radius: 999px; border: 1px solid #d8d6d1; background: white; color: #767676; cursor: pointer; }
-  .sub-lang-btn.active { background: #2f3f8f; border-color: #2f3f8f; color: white; }
+  .sub-lang-btn.active { background: #5838b8; border-color: #5838b8; color: white; }
 
-  .sub-progress { display: flex; align-items: center; gap: 10px; margin-bottom: 16px; }
-  .sub-progress-label { font-size: 11px; color: #9a9a9a; white-space: nowrap; }
-  .sub-progress-bar { flex: 1; height: 4px; border-radius: 999px; background: #e6e4e0; overflow: hidden; }
-  .sub-progress-fill { height: 100%; background: #3b57d6; border-radius: 999px; transition: width 0.2s; }
+  /* Own container-type here — .sub-progress is a sibling of .sub-book-outer
+     (not a descendant), so it can't rely on that container's query scope and
+     needs its own to independently pick the same mobile/desktop breakpoint. */
+  .sub-progress { container-type: inline-size; margin-bottom: 16px; }
+  .sub-progress-label { display: block; font-size: 13px; font-weight: 700; color: #5838b8; text-align: center; margin-bottom: 8px; }
+  .sub-progress-bar { display: none; }
+  .sub-progress-pills { display: flex; gap: 6px; }
+  .sub-progress-pill { flex: 1; height: 4px; border-radius: 999px; background: #e6e4e0; }
+  .sub-progress-pill.filled { background: #5838b8; }
 
-  .sub-opening-text { font-size: 15px; color: #55524c; line-height: 1.6; margin: 0; }
+  .sub-opening-text { font-size: 16px; color: #55524c; line-height: 1.6; margin: 0; }
 
   .sub-intro-guidance { margin-top: 18px; }
-  .sub-intro-guidance-heading { font-size: 14px; font-weight: 700; color: #2f3f8f; margin: 16px 0 8px; }
-  .sub-intro-guidance-steps { margin: 0; padding-inline-start: 20px; display: grid; gap: 6px; }
-  .sub-intro-guidance-steps li { font-size: 14px; color: #55524c; line-height: 1.6; }
-  .sub-intro-guidance-closing { font-size: 14px; color: #55524c; line-height: 1.6; margin: 0; }
+  .sub-intro-guidance-heading { font-size: 16px; font-weight: 700; color: #5838b8; margin: 16px 0 8px; }
+  /* Desktop-only plain list (see @container below); mobile shows the card
+     version instead (.sub-intro-step-list, further down). */
+  .sub-intro-guidance-steps { display: none; }
+  .sub-intro-guidance-steps li { font-size: 16px; color: #55524c; line-height: 1.6; }
+  .sub-intro-guidance-closing { font-size: 16px; color: #55524c; line-height: 1.6; margin: 0; }
 
-  .sub-eyebrow { font-size: 13px; font-weight: 700; letter-spacing: 1.6px; text-transform: uppercase; color: #7c6fdc; margin: 0 0 8px; }
+  .sub-intro-step-list { display: grid; gap: 8px; margin: 4px 0; }
+  .sub-intro-step-card { display: flex; align-items: center; justify-content: space-between; gap: 12px; border: 1px solid #e6e4e0; border-radius: 12px; padding: 14px 16px; }
+  .sub-intro-step-text { font-size: 16px; color: #55524c; line-height: 1.5; }
+  .sub-intro-step-text strong { color: #2b2b2b; }
+  .sub-intro-step-badge { flex-shrink: 0; width: 30px; height: 30px; border-radius: 50%; border: 1.5px solid #5838b8; color: #5838b8; font-size: 14px; font-weight: 700; display: flex; align-items: center; justify-content: center; }
+
+  .sub-eyebrow { font-size: 13px; font-weight: 700; letter-spacing: 1.6px; text-transform: uppercase; color: #5838b8; margin: 0 0 8px; }
   .sub-heading { font-size: 26px; font-weight: 700; color: #1a1a1a; margin: 0 0 8px; }
 
   .sub-date-input { width: 100%; padding: 12px 14px; font-size: 14px; border: 1px solid #e6e4e0; border-radius: 10px; background: #f7f6f4; box-sizing: border-box; }
@@ -105,7 +138,7 @@ export const WIZARD_EXTRA_STYLES = `
   .sub-q-chevron { flex-shrink: 0; color: #b5b3ae; transition: transform 0.15s; }
   .sub-q.active .sub-q-chevron { transform: rotate(180deg); }
   .sub-q-body { padding: 0 16px 16px; }
-  .sub-q-helper { font-size: 12px; color: #949494; margin: -4px 0 8px; }
+  .sub-q-helper { font-size: 16px; color: #949494; margin: -4px 0 8px; }
   .sub-q-textarea {
     width: 100%;
     padding: 10px 12px;
@@ -116,7 +149,7 @@ export const WIZARD_EXTRA_STYLES = `
     resize: vertical;
     box-sizing: border-box;
     font-family: inherit;
-    background-color: #fff;
+    background-color: #f5f3ff;
   }
   .sub-q-textarea:disabled { background-color: #f7f6f4; color: #8a8883; cursor: default; }
   .sub-date-input:disabled { background-color: #f0efec; color: #8a8883; cursor: default; }
@@ -126,7 +159,7 @@ export const WIZARD_EXTRA_STYLES = `
   .sub-btn { flex: 1; padding: 13px 16px; font-size: 14px; font-weight: 700; border-radius: 10px; cursor: pointer; }
   .sub-btn-draft { background: white; border: 1px solid #d8d6d1; color: #3b57d6; }
   .sub-btn-draft:disabled { opacity: 0.6; cursor: default; }
-  .sub-btn-send { background: #2f3f8f; border: none; color: white; }
+  .sub-btn-send { background: #5838b8; border: none; color: white; }
   .sub-btn-send:disabled { opacity: 0.6; cursor: default; }
 
   .sub-choose-list { display: grid; gap: 6px; margin: 4px 0 22px; }
@@ -136,7 +169,7 @@ export const WIZARD_EXTRA_STYLES = `
     border: 1.5px solid #e6e4e0; border-radius: 12px; background: #fff; cursor: pointer;
     transition: border-color 0.15s, background-color 0.15s;
   }
-  .sub-choose-option.selected { border-color: #2f3f8f; background: #eef1f8; }
+  .sub-choose-option.selected { border-color: #5838b8; background: #f5f3ff; }
   /* Up to 3 lines per box, longer text ellipsized past that — keeps every
      option a consistent, compact height instead of growing unboundedly. */
   .sub-choose-option-text {
@@ -147,22 +180,30 @@ export const WIZARD_EXTRA_STYLES = `
     flex-shrink: 0; width: 22px; height: 22px; border-radius: 50%;
     border: 1.5px solid #c9c7c2; display: flex; align-items: center; justify-content: center;
   }
-  .sub-choose-radio.checked { background: #2f3f8f; border-color: #2f3f8f; }
+  .sub-choose-radio.checked { background: #5838b8; border-color: #5838b8; }
   .sub-choose-surprise {
     display: flex; align-items: center; justify-content: center; gap: 8px;
     width: 100%; padding: 14px 18px; font: inherit; font-size: 14px; color: #767676;
     border: 1.5px dashed #d8d6d1; border-radius: 12px; background: #fafaf9; cursor: pointer;
   }
-  /* Shared bottom nav (StepBottomNav.tsx): one full-width continue button +
-     a plain-text back link below it — used by every step being migrated to
-     the newer design (chooseQuestion, blessing, more to follow). */
-  .sub-step-bottom { display: flex; flex-direction: column; align-items: center; gap: 14px; }
-  .sub-step-continue { display: flex; align-items: center; justify-content: center; gap: 8px; width: 100%; }
+  /* Shared bottom nav (StepBottomNav.tsx). Mobile default: both buttons
+     full width, one below the other — same width as each other, same as the
+     primary button. Desktop keeps the original 2-buttons-in-a-row pattern,
+     equal width, side by side (@container below) — see that block for the
+     row-reverse/JSX-order note. */
+  .sub-step-bottom { display: flex; flex-direction: column; align-items: stretch; gap: 10px; }
+  .sub-step-continue { display: flex; align-items: center; justify-content: center; gap: 8px; width: 100%; padding: 13px 16px; border-radius: 10px; }
   .sub-step-back {
-    display: flex; align-items: center; gap: 4px; background: none; border: none;
-    font-size: 14px; font-weight: 700; color: #2f3f8f; cursor: pointer; padding: 4px;
+    /* 12px (not 13px) vertical padding — compensates for the 1px border on
+       each side so its total height exactly matches .sub-step-continue
+       (which has no border), per the user's request that both match. */
+    display: flex; align-items: center; justify-content: center; gap: 4px;
+    width: 100%; border: 1px solid #e6e4e0; border-radius: 10px; background: none; color: #5838b8;
+    font-size: 14px; font-weight: 700; cursor: pointer; padding: 12px 20px; box-sizing: border-box;
   }
   .sub-step-back:disabled { opacity: 0.6; cursor: default; }
+  /* No back-arrow on mobile — restored at desktop below. */
+  .sub-step-back svg { display: none; }
 
   /* A plain single-line text input styled to look exactly as "open for
      writing" as .sub-q-textarea — used for short free-text fields like the
@@ -173,17 +214,17 @@ export const WIZARD_EXTRA_STYLES = `
   /* Step 4 (photo) — subtext under the heading, an inline hint box with a
      heart icon, an "or" divider, an outlined camera button, format/size
      hints, and the empty drop-zone's backdrop photo + "add" circle. */
-  .sub-photo-subtext { font-size: 14px; color: #55524c; line-height: 1.6; margin: 0 0 16px; }
+  .sub-photo-subtext { font-size: 16px; color: #55524c; line-height: 1.6; margin: 0 0 16px; }
   .sub-photo-subtext-editable { width: 100%; resize: vertical; border: 1px solid #f0c419; background: #fdf6d8; border-radius: 8px; padding: 8px 10px; box-sizing: border-box; font-family: inherit; }
   .sub-photo-subtext-editable:focus { outline: 2px solid #f0c419; }
   .sub-photo-hint-box { display: flex; align-items: flex-start; justify-content: space-between; gap: 12px; padding: 14px 16px; border-radius: 12px; background: #f1effb; margin-bottom: 18px; }
-  .sub-photo-hint-line1 { font-size: 13px; font-weight: 700; color: #3a3a3a; margin: 0 0 4px; }
-  .sub-photo-hint-line2 { font-size: 12px; color: #767676; margin: 0; line-height: 1.5; }
+  .sub-photo-hint-line1 { font-size: 16px; font-weight: 700; color: #3a3a3a; margin: 0 0 4px; }
+  .sub-photo-hint-line2 { font-size: 16px; color: #767676; margin: 0; line-height: 1.5; }
   .sub-photo-or-row { display: flex; align-items: center; gap: 12px; margin: 4px 0 18px; }
   .sub-photo-or-row hr { flex: 1; border: none; border-top: 1px solid #e6e4e0; margin: 0; }
   .sub-photo-or-row span { font-size: 12px; color: #9a9a9a; }
-  .sub-photo-camera-btn { display: flex; align-items: center; justify-content: center; gap: 8px; width: 100%; padding: 13px 16px; font-size: 14px; font-weight: 700; color: #3b57d6; background: white; border: 1.5px solid #3b57d6; border-radius: 10px; cursor: pointer; margin-bottom: 14px; }
-  .sub-photo-format-hint { font-size: 12px; color: #9a9a9a; text-align: center; margin: 2px 0; }
+  .sub-photo-camera-btn { display: flex; align-items: center; justify-content: center; gap: 8px; width: 100%; padding: 13px 16px; font-size: 14px; font-weight: 700; color: #5838b8; background: white; border: 1.5px solid #5838b8; border-radius: 10px; cursor: pointer; margin-bottom: 14px; }
+  .sub-photo-format-hint { font-size: 16px; color: #9a9a9a; text-align: center; margin: 2px 0; }
 
   .sub-photo-drop-backdrop { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; opacity: 0.4; }
   .sub-photo-add-circle { position: relative; z-index: 1; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 8px; width: 150px; height: 150px; border-radius: 50%; background: rgba(255,255,255,0.92); box-shadow: 0 6px 24px rgba(0,0,0,0.1); }
@@ -197,7 +238,42 @@ export const WIZARD_EXTRA_STYLES = `
   .sub-done-icon-circle { width: 72px; height: 72px; border-radius: 50%; background: #eaf7ee; display: flex; align-items: center; justify-content: center; color: #3fb37f; flex-shrink: 0; }
   .sub-done-heading { font-size: 26px; font-weight: 700; color: #1a1a1a; margin: 0; }
   .sub-done-subtext { font-size: 15px; color: #55524c; line-height: 1.7; margin: 0; max-width: 360px; }
-  .sub-done-note { font-size: 13px; color: #9a9a9a; margin: 4px 0 0; }
+  .sub-done-note { font-size: 16px; color: #9a9a9a; margin: 4px 0 0; }
+
+  /* Desktop reverts — restores every mobile-default piece above to its
+     original pre-redesign look. Selectors here resolve against whichever
+     container-query ancestor is nearest to each one: .sub-progress-* against
+     .sub-progress's own container-type (declared above, since .sub-progress
+     sits outside .sub-book-outer); everything else against .sub-book-outer's
+     (declared in BOOK_STYLES) — both trip at the same 860px width. */
+  @container (min-width: 860px) {
+    .sub-lang-btn.active { background: #2f3f8f; border-color: #2f3f8f; }
+    .sub-progress { display: flex; align-items: center; gap: 10px; }
+    .sub-progress-label { font-size: 11px; font-weight: 400; color: #9a9a9a; text-align: start; white-space: nowrap; margin-bottom: 0; }
+    .sub-progress-bar { display: block; flex: 1; height: 4px; border-radius: 999px; background: #e6e4e0; overflow: hidden; }
+    .sub-progress-fill { height: 100%; background: #3b57d6; border-radius: 999px; transition: width 0.2s; }
+    .sub-progress-pills { display: none; }
+    .sub-intro-guidance-heading { color: #2f3f8f; }
+    .sub-intro-guidance-steps { display: grid; margin: 0; padding-inline-start: 20px; gap: 6px; }
+    .sub-intro-step-list { display: none; }
+    .sub-eyebrow { color: #7c6fdc; }
+    .sub-btn-send { background: #2f3f8f; }
+    .sub-choose-option.selected { border-color: #2f3f8f; background: #eef1f8; }
+    .sub-choose-radio.checked { background: #2f3f8f; border-color: #2f3f8f; }
+    .sub-q-textarea { background-color: #fff; }
+    /* Original 2-buttons-in-a-row pattern, same as Step 5's actions.
+       row-reverse (not row) so the JSX order [continue, back] still lands
+       continue/primary opposite back, matching Step 5's [back, send] JSX
+       order under both RTL and LTR. */
+    .sub-step-bottom { flex-direction: row-reverse; }
+    .sub-step-continue { width: auto; flex: 1; padding: 13px 16px; }
+    .sub-step-back {
+      flex: 1; border-radius: 10px; border-color: #d8d6d1; background: white; color: #333;
+      font-size: 14px; padding: 13px 16px;
+    }
+    .sub-step-back svg { display: block; }
+    .sub-photo-camera-btn { color: #3b57d6; border-color: #3b57d6; }
+  }
 `;
 
 export default function SubmissionWizard({
@@ -485,12 +561,17 @@ export default function SubmissionWizard({
   const stepOrder = questionMode === "PICK_ONE" ? STEP_ORDER_PICK_ONE : STEP_ORDER_ALL;
   const stepIndex = stepOrder.indexOf(state.step);
   const backToEditStep: StepId = questionMode === "PICK_ONE" ? "answerQuestion" : "questions";
-  // "done" isn't part of stepOrder (it comes after everything in it) — for
-  // PICK_ONE, stepOrder.length already equals the true displayed total (the
-  // chooseQuestion/answerQuestion merge absorbs the one extra array entry),
-  // so done is simply that same total, both as its own number and as the
-  // total. ALL mode has no such merge, so done is one past stepOrder.length.
-  const doneStepNumber = questionMode === "PICK_ONE" ? stepOrder.length : stepOrder.length + 1;
+  // The displayed "Step N of Total" for the current step — PICK_ONE uses the
+  // centralized map above (chooseQuestion/answerQuestion share one number);
+  // ALL mode has no such merge, so it's just the raw array position.
+  const displayStepNumber =
+    questionMode === "PICK_ONE" ? (STEP_DISPLAY_PICK_ONE[state.step] ?? stepIndex + 1) : stepIndex + 1;
+  const displayStepTotal = questionMode === "PICK_ONE" ? STEP_DISPLAY_TOTAL_PICK_ONE : stepOrder.length;
+  // "done" isn't part of stepOrder (it comes after everything in it), so it
+  // isn't covered by stepIndex/displayStepNumber above — PICK_ONE's map
+  // already has an explicit "done" entry (6) that agrees with
+  // displayStepTotal; ALL mode has no such map, so it's one past its total.
+  const doneStepNumber = questionMode === "PICK_ONE" ? STEP_DISPLAY_TOTAL_PICK_ONE : stepOrder.length + 1;
 
   return (
     <>
@@ -532,9 +613,16 @@ export default function SubmissionWizard({
 
       {stepIndex >= 0 && (
         <div className="sub-progress">
-          <span className="sub-progress-label">{STEP_OF_LABEL[state.lang](stepIndex + 1, stepOrder.length)}</span>
+          <span className="sub-progress-label">{STEP_OF_LABEL[state.lang](displayStepNumber, displayStepTotal)}</span>
           <div className="sub-progress-bar">
-            <div className="sub-progress-fill" style={{ width: `${((stepIndex + 1) / stepOrder.length) * 100}%` }} />
+            <div className="sub-progress-fill" style={{ width: `${(displayStepNumber / displayStepTotal) * 100}%` }} />
+          </div>
+          {/* Mobile-only segmented pill bar (desktop reverts to the thin bar
+              above — see WIZARD_EXTRA_STYLES' @container block). */}
+          <div className="sub-progress-pills" aria-hidden>
+            {Array.from({ length: displayStepTotal }).map((_, i) => (
+              <span key={i} className={`sub-progress-pill${i < displayStepNumber ? " filled" : ""}`} />
+            ))}
           </div>
         </div>
       )}
@@ -557,20 +645,21 @@ export default function SubmissionWizard({
           answers={state.answers}
           questions={questions}
           dateLocation={state.dateLocation}
-          photoUrl={state.photoPreviewUrl}
+          // Falls back to the project's cover photo once the guest hasn't
+          // uploaded one yet, same fallback "done" already uses — both the
+          // mobile hero banner and the review card's thumbnail use this same
+          // resolved value.
+          photoUrl={state.photoPreviewUrl ?? coverImageUrl ?? null}
+          photoFileName={state.photo?.name ?? null}
           blessingText={questionMode === "PICK_ONE" ? state.blessingText : null}
           blessingSignedBy={questionMode === "PICK_ONE" ? state.blessingSignedBy : null}
           onBackToEdit={() => dispatch({ type: "GO_TO_STEP", step: backToEditStep })}
+          onEdit={(step) => dispatch({ type: "GO_TO_STEP", step })}
           onConfirm={handleConfirmFinal}
           isSubmitting={state.submitStatus === "pending"}
           error={state.submitError}
-          // PICK_ONE's chooseQuestion/answerQuestion share one displayed step
-          // number (see their own call sites above), which pulls every step
-          // after them one number lower than its raw array position — using
-          // the 0-based index here (instead of +1) already accounts for that.
-          // ALL mode has no such merge, so it needs the standard +1.
-          stepNumber={questionMode === "PICK_ONE" ? stepIndex : stepIndex + 1}
-          stepTotal={stepOrder.length}
+          stepNumber={displayStepNumber}
+          stepTotal={displayStepTotal}
         />
       ) : state.step === "photoDate" ? (
         <div className="sub-book-outer">
@@ -602,16 +691,17 @@ export default function SubmissionWizard({
               onNext={handleNextFromPhoto}
               isSaving={state.saveStatus === "saving"}
               error={state.saveError}
-              // PICK_ONE's chooseQuestion/answerQuestion share one displayed
-              // step number (see their own call sites above) — the 0-based
-              // index here already accounts for that, same as Step 5's.
-              stepNumber={stepOrder.indexOf("photo")}
-              stepTotal={stepOrder.length}
+              stepNumber={displayStepNumber}
+              stepTotal={displayStepTotal}
             />
           </div>
         </div>
       ) : (
         <div className="sub-book-outer">
+          {/* Intro is always the project's cover photo, never the guest's
+              own upload (even if they already have one from a prior visit) —
+              unlike preview/done below, which show whichever the guest has. */}
+          {state.step === "intro" && <MobileHero src={coverImageUrl} />}
           <div className="sub-book">
             {state.step === "intro" ? (
               <IntroStep
@@ -633,8 +723,8 @@ export default function SubmissionWizard({
                 selectedId={state.activeQuestionId}
                 onChoose={handleChooseQuestion}
                 onBack={() => dispatch({ type: "GO_TO_STEP", step: "blessing" })}
-                stepNumber={stepIndex + 1}
-                stepTotal={stepOrder.length}
+                stepNumber={displayStepNumber}
+                stepTotal={displayStepTotal}
               />
             ) : state.step === "answerQuestion" && chosenQuestion ? (
               <AnswerQuestionStep
@@ -647,8 +737,8 @@ export default function SubmissionWizard({
                 onNext={handleNextFromAnswerQuestion}
                 isSaving={state.saveStatus === "saving"}
                 error={state.saveError}
-                stepNumber={stepOrder.indexOf("chooseQuestion") + 1}
-                stepTotal={stepOrder.length}
+                stepNumber={displayStepNumber}
+                stepTotal={displayStepTotal}
               />
             ) : state.step === "answerQuestion" ? (
               <ChooseQuestionStep
@@ -658,8 +748,8 @@ export default function SubmissionWizard({
                 selectedId={state.activeQuestionId}
                 onChoose={handleChooseQuestion}
                 onBack={() => dispatch({ type: "GO_TO_STEP", step: "blessing" })}
-                stepNumber={stepIndex + 1}
-                stepTotal={stepOrder.length}
+                stepNumber={displayStepNumber}
+                stepTotal={displayStepTotal}
               />
             ) : state.step === "blessing" ? (
               <BlessingStep
@@ -674,8 +764,8 @@ export default function SubmissionWizard({
                 onNext={handleNextFromBlessing}
                 isSaving={state.saveStatus === "saving"}
                 error={state.saveError}
-                stepNumber={stepIndex + 1}
-                stepTotal={stepOrder.length}
+                stepNumber={displayStepNumber}
+                stepTotal={displayStepTotal}
               />
             ) : (
               <QuestionsStep
@@ -703,10 +793,19 @@ export default function SubmissionWizard({
                 photoPreviewUrl={state.photoPreviewUrl}
                 coverImageUrl={coverImageUrl}
                 onPhotoChange={handlePhotoChange}
+                // Blessing and the question step are already long on mobile
+                // on their own — skip the photo invitation there entirely
+                // rather than add yet another block to scroll past.
+                className="sub-page-photo-hide-mobile"
               />
             ) : (
               <PhotoPage
-                photoUrl={state.photoPreviewUrl ?? (questionMode === "PICK_ONE" ? coverImageUrl ?? null : null)}
+                photoUrl={
+                  state.step === "intro"
+                    ? coverImageUrl ?? null
+                    : state.photoPreviewUrl ?? (questionMode === "PICK_ONE" ? coverImageUrl ?? null : null)
+                }
+                className="sub-page-photo-hide-mobile"
               />
             )}
           </div>

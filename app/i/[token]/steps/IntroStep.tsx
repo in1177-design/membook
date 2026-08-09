@@ -35,6 +35,10 @@ export default function IntroStep({
         {guidance && (
           <div className="sub-intro-guidance">
             <p className="sub-intro-guidance-heading">{guidance.stepsHeading}</p>
+
+            {/* Desktop keeps the plain numbered list; mobile shows the same
+                steps as bordered cards with a circle badge instead (CSS
+                toggles which one is visible — see WIZARD_EXTRA_STYLES). */}
             <ol className="sub-intro-guidance-steps">
               {guidance.steps.map((step, i) => (
                 <li key={i}>
@@ -42,6 +46,17 @@ export default function IntroStep({
                 </li>
               ))}
             </ol>
+            <div className="sub-intro-step-list">
+              {guidance.steps.map((step, i) => (
+                <div className="sub-intro-step-card" key={i}>
+                  <div className="sub-intro-step-text">
+                    <strong>{step.title}:</strong> {step.body}
+                  </div>
+                  <span className="sub-intro-step-badge">{i + 1}</span>
+                </div>
+              ))}
+            </div>
+
             <p className="sub-intro-guidance-heading">{guidance.closingHeading}</p>
             <p className="sub-intro-guidance-closing">{guidance.closingBody}</p>
           </div>

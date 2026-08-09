@@ -1,6 +1,6 @@
 import type { Lang } from "../types";
 import { STEP_OF_LABEL } from "../content";
-import { PhotoPage } from "../SubmissionBook";
+import { PhotoPage, MobileHero } from "../SubmissionBook";
 
 const SHORT_LABEL: Record<Lang, string> = { HE: "נשלח בהצלחה", RU: "Успешно отправлено", EN: "Successfully sent" };
 const HEADING: Record<Lang, string> = { HE: "תודה רבה!", RU: "Большое спасибо!", EN: "Thank you so much!" };
@@ -87,10 +87,11 @@ export default function DoneStep(props: Parameters<typeof DoneStepForm>[0] & { p
   const { photoUrl, ...formProps } = props;
   return (
     <div className="sub-book-outer">
+      <MobileHero src={photoUrl} />
       <div className="sub-book">
         <DoneStepForm {...formProps} />
         <div className="sub-spine" />
-        <PhotoPage photoUrl={photoUrl} />
+        <PhotoPage photoUrl={photoUrl} className="sub-page-photo-hide-mobile" />
       </div>
     </div>
   );

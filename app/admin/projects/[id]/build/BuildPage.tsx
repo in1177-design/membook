@@ -7,7 +7,7 @@ import ChooseQuestionStep from "../../../../i/[token]/steps/ChooseQuestionStep";
 import AnswerQuestionStep from "../../../../i/[token]/steps/AnswerQuestionStep";
 import { PhotoStepForm, PhotoDropPanel } from "../../../../i/[token]/steps/PhotoStep";
 import { DoneStepForm } from "../../../../i/[token]/steps/DoneStep";
-import { BookTextPage, PhotoPage, BOOK_STYLES } from "../../../../i/[token]/SubmissionBook";
+import { BookTextPage, PhotoPage, MobileHero, BOOK_STYLES } from "../../../../i/[token]/SubmissionBook";
 import { WIZARD_EXTRA_STYLES } from "../../../../i/[token]/SubmissionWizard";
 import { CONTENT, introGuidanceFor, eventTypeLabelFor, PICK_ONE_FALLBACK_TEXT } from "../../../../i/[token]/content";
 import type { Lang, Question } from "../../../../i/[token]/types";
@@ -83,6 +83,7 @@ export default function BuildPage({ project }: { project: ProjectData }) {
   const [mode, setMode] = useState<"edit" | "preview">("edit");
   const [activeStep, setActiveStep] = useState<ActiveStep>("intro");
   const [previewLang, setPreviewLang] = useState<Lang>("HE");
+  const [device, setDevice] = useState<"desktop" | "mobile">("desktop");
   const [showRu, setShowRu] = useState(
     Boolean(project.guestHeadlineRu || project.introTextRu || project.blessingPromptTextRu || project.photoRequestTextRu)
   );
@@ -324,6 +325,15 @@ export default function BuildPage({ project }: { project: ProjectData }) {
                 </button>
               ))}
             </div>
+            <div style={{ width: 1, alignSelf: "stretch", background: colors.border, flexShrink: 0 }} />
+            <div style={{ display: "inline-flex", padding: 3, borderRadius: 999, background: "#f1efe9", border: `1px solid ${colors.border}`, flexShrink: 0 }}>
+              <button type="button" onClick={() => setDevice("desktop")} style={toggleSegmentStyle(device === "desktop")} aria-label="תצוגת דסקטופ">
+                <DesktopIcon />
+              </button>
+              <button type="button" onClick={() => setDevice("mobile")} style={toggleSegmentStyle(device === "mobile")} aria-label="תצוגת מובייל">
+                <MobileIcon />
+              </button>
+            </div>
           </>
         )}
       </div>
@@ -343,7 +353,14 @@ export default function BuildPage({ project }: { project: ProjectData }) {
         .build-lang-column-heading { font-size: 12px; font-weight: 700; color: ${colors.textLabel}; margin: 0 0 4px; }
       `}</style>
 
-      <div className="sub-book-outer">
+      <div className="sub-book-outer" style={mode === "preview" && device === "mobile" ? { maxWidth: 420, margin: "0 auto" } : undefined}>
+        {/* Mobile-only hero banner (see .sub-mobile-hero) — same 3 "bookend"
+            steps as the real guest wizard (SubmissionWizard.tsx): intro,
+            preview, done. There's no real guest photo in this generic
+            template preview, so it's always the project's cover photo. */}
+        {(activeStep === "intro" || activeStep === "preview" || activeStep === "done") && (
+          <MobileHero src={project.coverImageUrl} />
+        )}
         <div className="sub-book" style={{ minHeight: 420 }}>
           {activeStep === "preview" ? (
             // No admin-editable fields for this step (it just reflects
@@ -366,6 +383,7 @@ export default function BuildPage({ project }: { project: ProjectData }) {
               dateLocation=""
               blessingText={null}
               blessingSignedBy={null}
+              photoUrl={project.coverImageUrl}
               onBackToEdit={() => {}}
               onConfirm={() => {}}
               isSubmitting={false}
@@ -384,12 +402,12 @@ export default function BuildPage({ project }: { project: ProjectData }) {
             // trailing PhotoPage — see the comment down there.
             <PhotoStepForm
               lang={previewLang}
-              photoRequestText={photoRequestText[previewLang]}
+              photoRequestText={mode === "edit" ? photoRequestText[previewLang] : photoRequestTextFor(previewLang)}
               photoRequestTextPlaceholder={photoRequestTextFor(previewLang)}
-              onPhotoRequestTextChange={(value) =>
-                setPhotoRequestText((prev) => ({ ...prev, [previewLang]: value }))
+              onPhotoRequestTextChange={
+                mode === "edit" ? (value) => setPhotoRequestText((prev) => ({ ...prev, [previewLang]: value })) : undefined
               }
-              onPhotoRequestTextBlur={handleBlur}
+              onPhotoRequestTextBlur={mode === "edit" ? handleBlur : undefined}
               onPhotoChange={() => {}}
               onBack={() => {}}
               onNext={() => {}}
@@ -604,8 +622,16 @@ export default function BuildPage({ project }: { project: ProjectData }) {
             // The real drop-zone look (40%-opacity cover-photo backdrop +
             // "add photo" button) instead of this shell's usual plain
             // PhotoPage — matches the real guest wizard, where steps 2-4 all
-            // show this same "add a photo" invitation.
-            <PhotoDropPanel lang={previewLang} photoPreviewUrl={null} coverImageUrl={project.coverImageUrl} onPhotoChange={() => {}} />
+            // show this same "add a photo" invitation. On mobile: steps 2-3
+            // (blessing, question) skip it entirely, same as the guest
+            // wizard; step 4 uses the default float-to-top behavior.
+            <PhotoDropPanel
+              lang={previewLang}
+              photoPreviewUrl={null}
+              coverImageUrl={project.coverImageUrl}
+              onPhotoChange={() => {}}
+              className={activeStep === "blessing" || activeStep === "question" ? "sub-page-photo-hide-mobile" : undefined}
+            />
           ) : (
             <PhotoPage photoUrl={project.coverImageUrl} />
           )}
@@ -673,6 +699,24 @@ const trashButtonStyle: React.CSSProperties = {
   cursor: "pointer",
   color: colors.textLabel,
 };
+
+function DesktopIcon() {
+  return (
+    <svg width="15" height="15" viewBox="0 0 20 20" fill="none">
+      <rect x="2" y="3.5" width="16" height="10.5" rx="1.3" stroke="currentColor" strokeWidth="1.4" />
+      <path d="M7 17h6M10 14v3" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round" />
+    </svg>
+  );
+}
+
+function MobileIcon() {
+  return (
+    <svg width="15" height="15" viewBox="0 0 20 20" fill="none">
+      <rect x="5.5" y="2" width="9" height="16" rx="1.6" stroke="currentColor" strokeWidth="1.4" />
+      <path d="M9 15.3h2" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round" />
+    </svg>
+  );
+}
 
 function TrashIcon() {
   return (

@@ -2,6 +2,7 @@ import { notFound } from "next/navigation";
 import { prisma } from "../../../../../lib/prisma";
 import SubmissionWizard from "../../../../i/[token]/SubmissionWizard";
 import { CONTENT, PICK_ONE_FALLBACK_TEXT, introGuidanceFor, eventTypeLabelFor } from "../../../../i/[token]/content";
+import PreviewDeviceFrame from "./PreviewDeviceFrame";
 
 export const dynamic = "force-dynamic";
 
@@ -59,26 +60,28 @@ export default async function ProjectFormPreviewPage({ params }: { params: Promi
   return (
     <main>
       <h1 style={{ fontSize: 24, margin: "0 0 12px" }}>תצוגה מקדימה של הטופס</h1>
-      <SubmissionWizard
-        token="preview"
-        headlineTexts={headlineTexts}
-        content={CONTENT}
-        introTexts={introTexts}
-        introGuidance={introGuidanceFor(project.questionMode)}
-        eventTypeLabels={eventTypeLabels}
-        photoRequestTexts={photoRequestTexts}
-        blessingPromptTexts={blessingPromptTexts}
-        coverImageUrl={project.coverImageUrl}
-        initialLanguage={project.defaultLanguage}
-        questions={questions}
-        questionMode={project.questionMode}
-        isCompleted={false}
-        existingPhotoUrl={null}
-        existingDateLocation={null}
-        existingBlessingText={null}
-        existingBlessingSignedBy={null}
-        previewMode
-      />
+      <PreviewDeviceFrame>
+        <SubmissionWizard
+          token="preview"
+          headlineTexts={headlineTexts}
+          content={CONTENT}
+          introTexts={introTexts}
+          introGuidance={introGuidanceFor(project.questionMode)}
+          eventTypeLabels={eventTypeLabels}
+          photoRequestTexts={photoRequestTexts}
+          blessingPromptTexts={blessingPromptTexts}
+          coverImageUrl={project.coverImageUrl}
+          initialLanguage={project.defaultLanguage}
+          questions={questions}
+          questionMode={project.questionMode}
+          isCompleted={false}
+          existingPhotoUrl={null}
+          existingDateLocation={null}
+          existingBlessingText={null}
+          existingBlessingSignedBy={null}
+          previewMode
+        />
+      </PreviewDeviceFrame>
     </main>
   );
 }
