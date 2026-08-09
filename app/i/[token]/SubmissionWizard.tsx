@@ -604,7 +604,12 @@ export default function SubmissionWizard({
         </div>
       )}
 
-      {state.step !== "done" && (
+      {/* Real guests get whatever language is registered for them
+          (invitee.language, resolved into initialLanguage before this
+          component even mounts) — no manual switcher. It only renders in
+          previewMode so the admin can still check each language's content
+          from the build/preview pages. */}
+      {previewMode && state.step !== "done" && (
         <div className="sub-lang-switch-wrap">
           <div className="sub-lang-switch">
             <span className="sub-lang-switch-label">שפה:</span>

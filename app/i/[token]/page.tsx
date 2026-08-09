@@ -119,6 +119,12 @@ export default async function InviteePage({ params }: { params: Promise<{ token:
     <>
       <style>{`
         .invitee-bg { background: #f3ece0; min-height: 100vh; }
+        /* Mobile: the whole page turns white (matches the book's own
+           full-bleed white look there) — only desktop keeps the cream
+           page background showing around the book. */
+        @media (max-width: 859px) {
+          .invitee-bg { background: #fff; }
+        }
       `}</style>
       <div className="invitee-bg">
         <main style={{ maxWidth: 1048, margin: "0 auto", padding: "40px 24px" }}>
