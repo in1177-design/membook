@@ -1,6 +1,6 @@
 import type { Lang } from "../types";
 import { STEP_OF_LABEL } from "../content";
-import { PhotoPage, MobileHero } from "../SubmissionBook";
+import { PhotoPage, MobileHero, StepProgress } from "../SubmissionBook";
 
 const SHORT_LABEL: Record<Lang, string> = { HE: "נשלח בהצלחה", RU: "Успешно отправлено", EN: "Successfully sent" };
 const HEADING: Record<Lang, string> = { HE: "תודה רבה!", RU: "Большое спасибо!", EN: "Thank you so much!" };
@@ -56,6 +56,7 @@ export function DoneStepForm({
         <p className="sub-eyebrow">
           {STEP_OF_LABEL[lang](stepNumber, stepTotal)} · {SHORT_LABEL[lang]}
         </p>
+        <StepProgress current={stepNumber} total={stepTotal} />
       </div>
 
       <div className="sub-page-form-scroll">

@@ -432,6 +432,8 @@ export default function BuildPage({ project }: { project: ProjectData }) {
                 eventTypeLabel={eventTypeLabelFor(project.eventType, previewLang)}
                 introText={introTextFor(previewLang)}
                 guidance={guidanceMap[previewLang]}
+                stepNumber={1}
+                stepTotal={STEP_LABELS.length}
                 onStart={() => {}}
               />
             ) : activeStep === "blessing" ? (

@@ -1,6 +1,7 @@
 import type { Lang, LangContent } from "../types";
 import { STEP_OF_LABEL } from "../content";
 import StepBottomNav from "./StepBottomNav";
+import { StepProgress } from "../SubmissionBook";
 
 const STEP_TITLE: Record<Lang, string> = {
   HE: "ברכה וחתימה",
@@ -50,6 +51,7 @@ export default function BlessingStep({
         <p className="sub-eyebrow">
           {STEP_OF_LABEL[lang](stepNumber, stepTotal)} · {STEP_TITLE[lang]}
         </p>
+        <StepProgress current={stepNumber} total={stepTotal} />
         {/* The admin's guidance text stays visible as a heading, not a
             placeholder — a placeholder disappears the moment the guest
             starts typing, right when they'd still want the prompt in view. */}

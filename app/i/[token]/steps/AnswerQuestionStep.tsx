@@ -1,6 +1,7 @@
 import { questionHelper, questionText, type Lang, type LangContent, type Question } from "../types";
 import { QUESTION_SHORT_LABEL, STEP_OF_LABEL } from "../content";
 import StepBottomNav from "./StepBottomNav";
+import { StepProgress } from "../SubmissionBook";
 
 export default function AnswerQuestionStep({
   question,
@@ -33,6 +34,7 @@ export default function AnswerQuestionStep({
         <p className="sub-eyebrow">
           {STEP_OF_LABEL[lang](stepNumber, stepTotal)} · {QUESTION_SHORT_LABEL[lang]}
         </p>
+        <StepProgress current={stepNumber} total={stepTotal} />
         <h1 className="sub-heading">{questionText(question, lang)}</h1>
         {questionHelper(question, lang) && <p className="sub-q-helper">{questionHelper(question, lang)}</p>}
       </div>

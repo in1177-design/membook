@@ -2,6 +2,7 @@ import { useState } from "react";
 import { questionText, type Lang, type LangContent, type Question } from "../types";
 import { QUESTION_SHORT_LABEL, STEP_OF_LABEL } from "../content";
 import StepBottomNav from "./StepBottomNav";
+import { StepProgress } from "../SubmissionBook";
 
 const STEP_TITLE: Record<Lang, string> = {
   HE: "בחרו שאלה אחת שתרצו לענות עליה",
@@ -52,6 +53,7 @@ export default function ChooseQuestionStep({
         <p className="sub-eyebrow">
           {STEP_OF_LABEL[lang](stepNumber, stepTotal)} · {QUESTION_SHORT_LABEL[lang]}
         </p>
+        <StepProgress current={stepNumber} total={stepTotal} />
         <h1 className="sub-heading">{STEP_TITLE[lang]}</h1>
       </div>
 

@@ -12,7 +12,7 @@ import PhotoStep, { PhotoDropPanel } from "./steps/PhotoStep";
 import PreviewStep from "./steps/PreviewStep";
 import DoneStep from "./steps/DoneStep";
 import type { Lang, LangContent, Question, QuestionMode, StepId, WizardAction } from "./types";
-import { STEP_OF_LABEL, type IntroGuidance } from "./content";
+import type { IntroGuidance } from "./content";
 
 type SaveStatus = "idle" | "saving" | "saved" | "error";
 type SubmitStatus = "idle" | "pending" | "error";
@@ -90,18 +90,33 @@ const STEP_DISPLAY_PICK_ONE: Partial<Record<StepId, number>> = {
 const STEP_DISPLAY_TOTAL_PICK_ONE = 6;
 
 export const WIZARD_EXTRA_STYLES = `
-  .sub-lang-switch { display: flex; align-items: center; gap: 8px; margin-bottom: 12px; }
+  /* .sub-lang-switch-wrap carries its own container-type (sits outside
+     .sub-book-outer, same reason .sub-mobile-hero needs to live inside it
+     instead — see BOOK_STYLES) — a container can't be queried for its OWN
+     properties (self-referential, disallowed), so the query below targets
+     .sub-lang-switch, a plain descendant of the wrapper, not the wrapper
+     itself. Mobile default: bled white, flush to the top/sides of the page
+     — this is the only piece left sitting directly on the page's own cream
+     background (.invitee-bg in page.tsx) now that the progress bar moved
+     inside the book; desktop reverts to its original plain, unbled look
+     below (the cream margin around the centered white book card there is
+     the existing, intentional desktop look — not part of this redesign). */
+  .sub-lang-switch-wrap { container-type: inline-size; }
+  .sub-lang-switch { display: flex; align-items: center; gap: 8px; background: #fff; margin: -40px -24px 12px; padding: 14px 24px 0; }
+  @container (min-width: 860px) {
+    .sub-lang-switch { background: none; margin: 0 0 12px; padding: 0; }
+  }
   .sub-lang-switch-label { font-size: 11px; color: #9a9a9a; }
   .sub-lang-btn { font-size: 12px; font-weight: 700; padding: 5px 12px; border-radius: 999px; border: 1px solid #d8d6d1; background: white; color: #767676; cursor: pointer; }
   .sub-lang-btn.active { background: #5838b8; border-color: #5838b8; color: white; }
 
-  /* Own container-type here — .sub-progress is a sibling of .sub-book-outer
-     (not a descendant), so it can't rely on that container's query scope and
-     needs its own to independently pick the same mobile/desktop breakpoint. */
-  .sub-progress { container-type: inline-size; margin-bottom: 16px; }
-  .sub-progress-label { display: block; font-size: 13px; font-weight: 700; color: #5838b8; text-align: center; margin-bottom: 8px; }
-  .sub-progress-bar { display: none; }
-  .sub-progress-pills { display: flex; gap: 6px; }
+  /* Segmented step-progress bar (StepProgress, in SubmissionBook.tsx) —
+     rendered inside every step's own .sub-page-form-top, right under its
+     eyebrow (which already carries the "Step N of Total · Label" text) and
+     above its heading. Same position and look at every width — no
+     mobile/desktop split needed here, since it now lives inside the book's
+     own text column instead of spanning above the whole book. */
+  .sub-progress-pills { display: flex; gap: 6px; margin: 8px 0 16px; }
   .sub-progress-pill { flex: 1; height: 4px; border-radius: 999px; background: #e6e4e0; }
   .sub-progress-pill.filled { background: #5838b8; }
 
@@ -241,18 +256,12 @@ export const WIZARD_EXTRA_STYLES = `
   .sub-done-note { font-size: 16px; color: #9a9a9a; margin: 4px 0 0; }
 
   /* Desktop reverts — restores every mobile-default piece above to its
-     original pre-redesign look. Selectors here resolve against whichever
-     container-query ancestor is nearest to each one: .sub-progress-* against
-     .sub-progress's own container-type (declared above, since .sub-progress
-     sits outside .sub-book-outer); everything else against .sub-book-outer's
-     (declared in BOOK_STYLES) — both trip at the same 860px width. */
+     original pre-redesign look, resolved against .sub-book-outer's
+     container-type (declared in BOOK_STYLES), which trips at 860px. The
+     progress pills have no desktop-specific look (same at every width, see
+     above) so there's nothing to revert for them here. */
   @container (min-width: 860px) {
     .sub-lang-btn.active { background: #2f3f8f; border-color: #2f3f8f; }
-    .sub-progress { display: flex; align-items: center; gap: 10px; }
-    .sub-progress-label { font-size: 11px; font-weight: 400; color: #9a9a9a; text-align: start; white-space: nowrap; margin-bottom: 0; }
-    .sub-progress-bar { display: block; flex: 1; height: 4px; border-radius: 999px; background: #e6e4e0; overflow: hidden; }
-    .sub-progress-fill { height: 100%; background: #3b57d6; border-radius: 999px; transition: width 0.2s; }
-    .sub-progress-pills { display: none; }
     .sub-intro-guidance-heading { color: #2f3f8f; }
     .sub-intro-guidance-steps { display: grid; margin: 0; padding-inline-start: 20px; gap: 6px; }
     .sub-intro-step-list { display: none; }
@@ -596,32 +605,18 @@ export default function SubmissionWizard({
       )}
 
       {state.step !== "done" && (
-        <div className="sub-lang-switch">
-          <span className="sub-lang-switch-label">שפה:</span>
-          {(["HE", "RU", "EN"] as Lang[]).map((l) => (
-            <button
-              key={l}
-              type="button"
-              className={`sub-lang-btn${state.lang === l ? " active" : ""}`}
-              onClick={() => dispatch({ type: "SET_LANG", lang: l })}
-            >
-              {l}
-            </button>
-          ))}
-        </div>
-      )}
-
-      {stepIndex >= 0 && (
-        <div className="sub-progress">
-          <span className="sub-progress-label">{STEP_OF_LABEL[state.lang](displayStepNumber, displayStepTotal)}</span>
-          <div className="sub-progress-bar">
-            <div className="sub-progress-fill" style={{ width: `${(displayStepNumber / displayStepTotal) * 100}%` }} />
-          </div>
-          {/* Mobile-only segmented pill bar (desktop reverts to the thin bar
-              above — see WIZARD_EXTRA_STYLES' @container block). */}
-          <div className="sub-progress-pills" aria-hidden>
-            {Array.from({ length: displayStepTotal }).map((_, i) => (
-              <span key={i} className={`sub-progress-pill${i < displayStepNumber ? " filled" : ""}`} />
+        <div className="sub-lang-switch-wrap">
+          <div className="sub-lang-switch">
+            <span className="sub-lang-switch-label">שפה:</span>
+            {(["HE", "RU", "EN"] as Lang[]).map((l) => (
+              <button
+                key={l}
+                type="button"
+                className={`sub-lang-btn${state.lang === l ? " active" : ""}`}
+                onClick={() => dispatch({ type: "SET_LANG", lang: l })}
+              >
+                {l}
+              </button>
             ))}
           </div>
         </div>
@@ -711,6 +706,8 @@ export default function SubmissionWizard({
                 eventTypeLabel={eventTypeLabels[state.lang]}
                 introText={introTexts[state.lang]}
                 guidance={introGuidance[state.lang]}
+                stepNumber={displayStepNumber}
+                stepTotal={displayStepTotal}
                 onStart={() =>
                   dispatch({ type: "GO_TO_STEP", step: questionMode === "PICK_ONE" ? "blessing" : "questions" })
                 }

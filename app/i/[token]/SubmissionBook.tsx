@@ -251,6 +251,22 @@ function PencilIcon() {
   );
 }
 
+// Segmented step-progress bar — one pill per total step, filled up through
+// the current one. Rendered inside each step's own .sub-page-form-top, right
+// under its eyebrow (which already carries the "Step N of Total · Label"
+// text) and above its heading — same position at every width, per the
+// user's reference screenshots, replacing the earlier standalone bar that
+// used to sit above the whole book.
+export function StepProgress({ current, total }: { current: number; total: number }) {
+  return (
+    <div className="sub-progress-pills" aria-hidden>
+      {Array.from({ length: total }).map((_, i) => (
+        <span key={i} className={`sub-progress-pill${i < current ? " filled" : ""}`} />
+      ))}
+    </div>
+  );
+}
+
 // The wave cut along a mobile hero photo's bottom edge — a single smooth
 // S-curve, filled to match the page background, stretched (preserveAspectRatio
 // "none") to whatever width the hero happens to render at.
@@ -448,6 +464,7 @@ export function BookTextPage({
             <p className="sub-eyebrow">
               {STEP_OF_LABEL[lang](stepNumber ?? 0, stepTotal ?? 0)} · {STEP_TITLE[lang]}
             </p>
+            <StepProgress current={stepNumber ?? 0} total={stepTotal ?? 0} />
             <h1 className="sub-heading">{PREVIEW_HEADING[lang]}</h1>
             <p className="sub-preview-subtext">{PREVIEW_SUBTEXT[lang]}</p>
           </div>

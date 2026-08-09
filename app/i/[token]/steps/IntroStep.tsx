@@ -1,5 +1,6 @@
 import type { Lang, LangContent } from "../types";
 import type { IntroGuidance } from "../content";
+import { StepProgress } from "../SubmissionBook";
 
 // Russian/English are LTR languages — their free text (headline, opening
 // text, guidance) should read left-to-right and hug the left edge, even
@@ -11,6 +12,8 @@ export default function IntroStep({
   eventTypeLabel,
   introText,
   guidance,
+  stepNumber,
+  stepTotal,
   onStart,
 }: {
   lang: Lang;
@@ -19,12 +22,15 @@ export default function IntroStep({
   eventTypeLabel: string;
   introText: string;
   guidance?: IntroGuidance;
+  stepNumber: number;
+  stepTotal: number;
   onStart: () => void;
 }) {
   return (
     <div className="sub-page sub-page-form" dir={lang === "HE" ? "rtl" : "ltr"}>
       <div className="sub-page-form-top">
         <p className="sub-eyebrow">{eventTypeLabel}</p>
+        <StepProgress current={stepNumber} total={stepTotal} />
         <h1 className="sub-heading">{projectName}</h1>
         <hr className="sub-divider" />
       </div>

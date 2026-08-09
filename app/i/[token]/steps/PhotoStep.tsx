@@ -2,6 +2,7 @@ import { useRef } from "react";
 import type { Lang } from "../types";
 import { STEP_OF_LABEL } from "../content";
 import StepBottomNav from "./StepBottomNav";
+import { StepProgress } from "../SubmissionBook";
 
 const SHORT_LABEL: Record<Lang, string> = { HE: "התמונה", RU: "Фотография", EN: "Photo" };
 const STEP_TITLE: Record<Lang, string> = {
@@ -129,6 +130,7 @@ export function PhotoStepForm({
         <p className="sub-eyebrow">
           {STEP_OF_LABEL[lang](stepNumber, stepTotal)} · {SHORT_LABEL[lang]}
         </p>
+        <StepProgress current={stepNumber} total={stepTotal} />
         <h1 className="sub-heading">{STEP_TITLE[lang]}</h1>
       </div>
 
