@@ -410,7 +410,6 @@ export default function BuildPage({ project }: { project: ProjectData }) {
               dateLocation=""
               blessingText={null}
               blessingSignedBy={null}
-              photoUrl={project.coverImageUrl}
               onBackToEdit={() => {}}
               onConfirm={() => {}}
               isSubmitting={false}

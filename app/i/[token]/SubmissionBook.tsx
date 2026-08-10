@@ -11,20 +11,37 @@ const STEP_TITLE: Record<Lang, string> = {
   EN: "Before sending",
 };
 const PREVIEW_HEADING: Record<Lang, string> = {
-  HE: "כך הברכה שלכם תיראה",
-  RU: "Вот как будет выглядеть ваше пожелание",
-  EN: "Here's how your blessing will look",
+  HE: "זה התוכן שיופיע בעמוד שלכם באלבום",
+  RU: "Это содержимое, которое появится на вашей странице в альбоме.",
+  EN: "This is the content that will appear on your page in the album.",
 };
 const PREVIEW_SUBTEXT: Record<Lang, string> = {
   HE: "עברו על הפרטים וודאו שהכל נראה כמו שרציתם.",
   RU: "Просмотрите детали и убедитесь, что всё выглядит так, как вы хотели.",
   EN: "Go over the details and make sure everything looks the way you wanted.",
 };
+// Copy for a returning guest who already completed their submission
+// (isSubmittedView) — replaces PREVIEW_HEADING/PREVIEW_SUBTEXT above, and the
+// step-of-total eyebrow/progress bar are hidden entirely, since there's no
+// "step" to be on anymore and nothing left to send.
+const SUBMITTED_HEADING: Record<Lang, string> = {
+  HE: "הברכה שלכם כבר נשלחה",
+  RU: "Ваше поздравление уже отправлено",
+  EN: "Your message has already been submitted",
+};
+// \n renders as a real line break — see .sub-preview-subtext's white-space.
+const SUBMITTED_SUBTEXT: Record<Lang, string> = {
+  HE: "זה התוכן ששלחתם לאלבום.\nאפשר עדיין לערוך את הברכה, לשנות את התשובה, להחליף או להוסיף תמונה — ולשלוח שוב את הגרסה המעודכנת.",
+  RU: "Это содержимое, которое вы отправили для альбома.\nВы всё ещё можете отредактировать поздравление, изменить ответ, заменить или добавить фотографию и снова отправить обновлённую версию.",
+  EN: "This is the content you submitted to the album.\nYou can still edit your message, change your answer, replace or add a photo, and submit the updated version again.",
+};
 const SEND_LABEL: Record<Lang, string> = { HE: "שליחה", RU: "Отправить", EN: "Send" };
 const SECTION_BLESSING_LABEL: Record<Lang, string> = { HE: "הברכה שלכם", RU: "Ваше пожелание", EN: "Your blessing" };
-const SECTION_QUESTION_LABEL: Record<Lang, string> = { HE: "השאלה והתשובה", RU: "Вопрос и ответ", EN: "Question and answer" };
-const SECTION_PHOTO_LABEL: Record<Lang, string> = { HE: "התמונה שלכם", RU: "Ваше фото", EN: "Your photo" };
 const EDIT_LABEL: Record<Lang, string> = { HE: "עריכה", RU: "Изменить", EN: "Edit" };
+// Same copy as Step 4's own "add photo" button (PhotoStep.tsx's
+// ADD_PHOTO_LABEL) — duplicated locally rather than imported, matching this
+// file's existing pattern of each step owning its own small icon/label set.
+const ADD_PHOTO_LABEL: Record<Lang, string> = { HE: "הוספת תמונה", RU: "Добавить фотографию", EN: "Add photo" };
 // Shown instead of real content only in the admin build page's generic
 // template preview (isAdminPreview) — there's no real guest yet to have
 // written anything, so every section just says where their text will go.
@@ -86,9 +103,7 @@ export const BOOK_STYLES = `
   /* Mobile default: the in-book photo panel (guest's own photo, side-by-side
      with the form at desktop) is hidden entirely — its mobile role is taken
      over by .sub-mobile-hero below (a full-width banner rendered ahead of
-     the book on the 3 steps that have one: intro, preview, done) and, on the
-     preview step specifically, by the small thumbnail inside its own review
-     card (see BookTextPage). */
+     the book on the 3 steps that have one: intro, preview, done). */
   .sub-page-photo { display: none; }
 
   /* Full-bleed hero banner (intro / preview / done, mobile only) — a
@@ -117,10 +132,21 @@ export const BOOK_STYLES = `
     padding: 4px 10px; border-radius: 999px; background: rgba(0,0,0,0.55); color: white; font-size: 11px;
   }
 
-  /* Step 5 review card thumbnail + per-card edit link. */
-  .sub-preview-photo-row { display: flex; align-items: center; gap: 12px; }
-  .sub-preview-photo-thumb { flex-shrink: 0; width: 56px; height: 56px; border-radius: 8px; object-fit: cover; background: #f1effb; }
-  .sub-preview-photo-name { font-size: 14px; color: #666; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  /* Step 5's main photo (mobile hero banner / desktop side panel) — an
+     overlay "edit" pill that reuses the exact same edit action as the
+     blessing/question cards below it (onEdit("photo"), jumping back to the
+     Photo step) instead of the old separate "התמונה שלכם" review card. Sets
+     its own dir (rather than relying on an ancestor) since it's rendered
+     inside MobileHero/PhotoPage, which sit outside BookTextPage's own
+     directional wrapper — inset-inline-end then resolves to the left in
+     Hebrew (rtl) and the right in Russian/English (ltr). */
+  .sub-preview-photo-edit-btn {
+    position: absolute; top: 12px; inset-inline-end: 12px; z-index: 2;
+    display: inline-flex; align-items: center; gap: 6px;
+    padding: 7px 12px; border-radius: 999px; border: none;
+    background: rgba(0,0,0,0.55); color: white; font-size: 12px; font-weight: 700; cursor: pointer;
+  }
+  /* Step 5 review card per-card edit link. */
   .sub-preview-edit-link {
     display: inline-flex; align-items: center; gap: 4px; font-size: 13px; font-weight: 700;
     color: #5838b8; background: none; border: none; padding: 0; cursor: pointer;
@@ -137,14 +163,20 @@ export const BOOK_STYLES = `
   .sub-photo-img { display: block; width: 100%; height: 100%; object-fit: cover; position: absolute; inset: 0; }
   .sub-photo-change { position: relative; z-index: 1; margin-top: auto; font-size: 12px; font-weight: 600; color: white; background: rgba(0,0,0,0.55); padding: 6px 14px; border-radius: 999px; }
 
-  .sub-preview-subtext { font-size: 16px; color: #8a8a8a; margin: 6px 0 0; text-align: center; }
+  /* pre-line so SUBMITTED_SUBTEXT's embedded \n renders as a real line break
+     (the plain "before sending" subtext has none, so this is a no-op there). */
+  .sub-preview-subtext { font-size: 16px; color: #8a8a8a; margin: 6px 0 0; text-align: center; white-space: pre-line; }
   .sub-preview-section { border: 1px solid #ece9e4; border-radius: 14px; padding: 16px 18px; margin-bottom: 14px; }
   .sub-preview-section-head { display: flex; align-items: center; justify-content: space-between; gap: 8px; margin: 0 0 10px; }
   .sub-preview-section-title { display: flex; align-items: center; gap: 8px; font-size: 14px; font-weight: 700; color: #2b2b2b; margin: 0; }
   .sub-preview-section-icon { flex-shrink: 0; width: 26px; height: 26px; border-radius: 50%; background: #f1effb; display: flex; align-items: center; justify-content: center; color: #5838b8; }
-  .sub-preview-section-body { font-size: 16px; color: #666; line-height: 1.7; margin: 0; white-space: pre-wrap; }
-  .sub-preview-question-text { font-size: 14px; font-weight: 700; color: #2b2b2b; margin: 0 0 10px; }
-  .sub-preview-quote-box { border-radius: 10px; padding: 14px 16px; font-size: 16px; color: #555; line-height: 1.7; white-space: pre-wrap; }
+  /* Same look for both — the blessing's body text and the Q&A's answer text
+     are both just "the guest's own words" inside an already-bordered
+     .sub-preview-section card, so neither gets its own extra padding/box
+     (a nested padded quote-box read as too far from the card's edge, out of
+     step with the blessing text sitting flush against it). */
+  .sub-preview-section-body,
+  .sub-preview-quote-box { font-size: 16px; color: #666; line-height: 1.7; margin: 0; white-space: pre-wrap; }
 
   /* Mobile default: both buttons full width, one below the other — same
      pattern as StepBottomNav (WIZARD_EXTRA_STYLES). Desktop keeps the
@@ -211,11 +243,33 @@ export const BOOK_STYLES = `
   }
 `;
 
-export function PhotoPage({ photoUrl }: { photoUrl: string | null }) {
+export function PhotoPage({
+  photoUrl,
+  overlay,
+  emptyState,
+  onEmptyStateClick,
+}: {
+  photoUrl: string | null;
+  // Step 5's "edit photo" pill (see .sub-preview-photo-edit-btn) — optional
+  // so every other caller of this shared component (steps 2-4's trailing
+  // photo panel, the admin build page) is unaffected.
+  overlay?: ReactNode;
+  // Step 5's desktop "no own photo yet" state — replaces the normal
+  // image+overlay with Step 4's own empty-state look (dimmed backdrop + big
+  // "add photo" circle, see SubmissionBook's showAddPhotoState) instead of
+  // stacking a small overlay pill on top of it.
+  emptyState?: ReactNode;
+  onEmptyStateClick?: () => void;
+}) {
   return (
     <div className="sub-page sub-page-photo">
-      <div className={`sub-photo-drop${photoUrl ? " has-photo" : ""}`}>
-        {photoUrl && <img src={photoUrl} alt="" className="sub-photo-img" />}
+      <div
+        className={`sub-photo-drop${photoUrl && !emptyState ? " has-photo" : ""}`}
+        onClick={emptyState ? onEmptyStateClick : undefined}
+        style={emptyState ? { cursor: "pointer" } : undefined}
+      >
+        {emptyState ?? (photoUrl && <img src={photoUrl} alt="" className="sub-photo-img" />)}
+        {!emptyState && overlay}
       </div>
     </div>
   );
@@ -243,20 +297,24 @@ function ChatIcon() {
   );
 }
 
-function PhotoIcon() {
-  return (
-    <svg width="14" height="14" viewBox="0 0 16 16" fill="none" aria-hidden="true">
-      <rect x="2" y="3.5" width="12" height="9" rx="1.5" stroke="currentColor" strokeWidth="1.4" />
-      <circle cx="6" cy="7" r="1" fill="currentColor" />
-      <path d="M3 11l3.2-3 2.3 2 2-2.3L14 11" stroke="currentColor" strokeWidth="1.3" strokeLinecap="round" strokeLinejoin="round" />
-    </svg>
-  );
-}
-
 function SendIcon() {
   return (
     <svg width="15" height="15" viewBox="0 0 16 16" fill="none" aria-hidden="true">
       <path d="M14 2 6.7 9.3M14 2 9.7 14l-3-4.7L2 6.3 14 2Z" stroke="white" strokeWidth="1.4" strokeLinecap="round" strokeLinejoin="round" />
+    </svg>
+  );
+}
+
+// Same glyph as Step 4's own PhotoAddIcon (PhotoStep.tsx) — duplicated
+// locally (see ADD_PHOTO_LABEL above) with a size param so the one shape
+// covers both this file's small overlay pill (12px, matching PencilIcon)
+// and the big desktop empty-state circle (26px, matching .sub-photo-add-circle).
+function PhotoAddIcon({ size = 26 }: { size?: number } = {}) {
+  return (
+    <svg width={size} height={size} viewBox="0 0 26 26" fill="none" aria-hidden="true">
+      <rect x="2" y="4" width="22" height="17" rx="2.5" stroke="currentColor" strokeWidth="1.6" />
+      <circle cx="9" cy="10" r="1.6" fill="currentColor" />
+      <path d="M3.5 18 9 12.5l3.5 3.5 3.5-4L22.5 18" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" />
     </svg>
   );
 }
@@ -344,8 +402,6 @@ export function BookTextPage({
   dateLocation,
   blessingText,
   blessingSignedBy,
-  photoUrl,
-  photoFileName,
   onBackToEdit,
   onEdit,
   onConfirm,
@@ -355,6 +411,7 @@ export function BookTextPage({
   stepNumber,
   stepTotal,
   isAdminPreview,
+  isSubmittedView,
 }: {
   content: Record<Lang, LangContent>;
   lang: Lang;
@@ -363,13 +420,6 @@ export function BookTextPage({
   dateLocation: string;
   blessingText?: string | null;
   blessingSignedBy?: string | null;
-  // Only used by the "before sending" review cards (Step 5) — the guest's
-  // own attached photo, shown as a small thumbnail in its own card rather
-  // than the big side panel. Its filename, when known (fresh upload this
-  // session), is shown alongside it; unknown (e.g. a photo already uploaded
-  // in an earlier visit) simply omits that line.
-  photoUrl?: string | null;
-  photoFileName?: string | null;
   onBackToEdit: () => void;
   // Per-card "edit" links on the Step 5 review — jumps straight back to the
   // step that owns that card. Optional: omitted (e.g. the admin build page's
@@ -390,6 +440,13 @@ export function BookTextPage({
   // there's no real guest submission behind it, so every section shows
   // placeholder copy instead of the (empty) real answers/blessingText props.
   isAdminPreview?: boolean;
+  // True for a returning guest whose submission is already completed AND
+  // unedited since (see SubmissionWizard's isCompleted && !hasChanges) — see
+  // SUBMITTED_HEADING/SUBTEXT above. Swaps the top copy, hides the step
+  // eyebrow/progress bar/send button; the per-card edit links (onEdit) still
+  // work exactly the same either way, and editing anything flips this back
+  // to false so the send button reappears.
+  isSubmittedView?: boolean;
 }) {
   const c = content[lang];
   const answeredQuestions = questions.filter((q) => (answers[q.id] ?? "").trim().length > 0);
@@ -427,11 +484,14 @@ export function BookTextPage({
       {questionSections.map(({ q, answerText }) => (
         <div className="sub-preview-section" key={q.id}>
           <div className="sub-preview-section-head">
+            {/* The generic "השאלה והתשובה" label is gone — the actual
+                question now doubles as this card's title, same slot/style
+                the blessing card's label sits in above. */}
             <p className="sub-preview-section-title">
               <span className="sub-preview-section-icon">
                 <ChatIcon />
               </span>
-              {SECTION_QUESTION_LABEL[lang]}
+              {questionText(q, lang)}
             </p>
             {onEdit && (
               <button type="button" className="sub-preview-edit-link" onClick={() => onEdit("answerQuestion")}>
@@ -440,45 +500,32 @@ export function BookTextPage({
               </button>
             )}
           </div>
-          <p className="sub-preview-question-text">{questionText(q, lang)}</p>
           <div className="sub-preview-quote-box">{answerText ?? ADMIN_PLACEHOLDER[lang]}</div>
         </div>
       ))}
-
-      {photoUrl && (
-        <div className="sub-preview-section">
-          <div className="sub-preview-section-head">
-            <p className="sub-preview-section-title">
-              <span className="sub-preview-section-icon">
-                <PhotoIcon />
-              </span>
-              {SECTION_PHOTO_LABEL[lang]}
-            </p>
-            {onEdit && (
-              <button type="button" className="sub-preview-edit-link" onClick={() => onEdit("photo")}>
-                <PencilIcon />
-                {EDIT_LABEL[lang]}
-              </button>
-            )}
-          </div>
-          <div className="sub-preview-photo-row">
-            <img src={photoUrl} alt={SECTION_PHOTO_LABEL[lang]} className="sub-preview-photo-thumb" />
-            {photoFileName && <span className="sub-preview-photo-name">{photoFileName}</span>}
-          </div>
-        </div>
-      )}
     </div>
   );
 
   return (
-    <div className="sub-page sub-page-form">
+    // Every other step sets dir on its own root this same way (see e.g.
+    // BlessingStep.tsx) — Step 5 was missing it, so RU/EN guests were
+    // silently getting the global <html dir="rtl"> default instead of their
+    // own language's direction for the section text/edit-button placement.
+    <div className="sub-page sub-page-form" dir={lang === "HE" ? "rtl" : "ltr"}>
       <div className="sub-page-form-top">
-        <p className="sub-eyebrow">
-          {STEP_OF_LABEL[lang](stepNumber ?? 0, stepTotal ?? 0)} · {STEP_TITLE[lang]}
-        </p>
-        <StepProgress current={stepNumber ?? 0} total={stepTotal ?? 0} />
-        <h1 className="sub-heading">{PREVIEW_HEADING[lang]}</h1>
-        <p className="sub-preview-subtext">{PREVIEW_SUBTEXT[lang]}</p>
+        {/* A returning, already-submitted guest isn't "on a step" anymore
+            (they can reopen this screen indefinitely, edit-only) — no step
+            eyebrow, no progress bar, just the "already sent" message. */}
+        {!isSubmittedView && (
+          <>
+            <p className="sub-eyebrow">
+              {STEP_OF_LABEL[lang](stepNumber ?? 0, stepTotal ?? 0)} · {STEP_TITLE[lang]}
+            </p>
+            <StepProgress current={stepNumber ?? 0} total={stepTotal ?? 0} />
+          </>
+        )}
+        <h1 className="sub-heading">{isSubmittedView ? SUBMITTED_HEADING[lang] : PREVIEW_HEADING[lang]}</h1>
+        <p className="sub-preview-subtext">{isSubmittedView ? SUBMITTED_SUBTEXT[lang] : PREVIEW_SUBTEXT[lang]}</p>
       </div>
       <div className="sub-page-form-scroll">{summary}</div>
       <div className="sub-page-form-bottom">
@@ -487,15 +534,23 @@ export function BookTextPage({
           <button type="button" className="sub-preview-btn-back" onClick={onBackToEdit} disabled={isSubmitting}>
             {c.backToEditLabel}
           </button>
-          <button
-            type="button"
-            className="sub-preview-btn-send"
-            onClick={onConfirm}
-            disabled={isSubmitting || confirmDisabled}
-          >
-            <SendIcon />
-            {isSubmitting ? "..." : SEND_LABEL[lang]}
-          </button>
+          {/* Already sent with nothing changed since — nothing to submit, so
+              this stays hidden. Editing anything (via the per-card edit
+              links above or "back to editing" on the left) flips
+              isSubmittedView back to false once the guest returns here,
+              which brings this button right back so they can send the
+              updated version. */}
+          {!isSubmittedView && (
+            <button
+              type="button"
+              className="sub-preview-btn-send"
+              onClick={onConfirm}
+              disabled={isSubmitting || confirmDisabled}
+            >
+              <SendIcon />
+              {isSubmitting ? "..." : SEND_LABEL[lang]}
+            </button>
+          )}
         </div>
       </div>
     </div>
@@ -508,16 +563,66 @@ export function BookTextPage({
 // own outer shell already (see BookTextPage above) and must NOT use this,
 // or the two book shells nest and produce a stray extra photo column.
 export default function SubmissionBook(
-  props: Parameters<typeof BookTextPage>[0] & { photoUrl: string | null }
+  props: Parameters<typeof BookTextPage>[0] & {
+    photoUrl: string | null;
+    // False when photoUrl is only the project's cover-photo fallback (the
+    // guest hasn't uploaded their own yet) — swaps the "עריכה" pill for an
+    // "הוספת תמונה" one, and swaps the desktop side panel for Step 4's own
+    // empty-state look. Defaults true (today's only behavior) so this stays
+    // a no-op for the one caller (PreviewStep) until it starts passing it.
+    hasOwnPhoto?: boolean;
+  }
 ) {
-  const { photoUrl, ...pageProps } = props;
+  const { photoUrl, lang, onEdit, hasOwnPhoto = true, ...pageProps } = props;
+  // Step 5's photo-panel overlay, shown on the main photo itself (mobile
+  // hero banner / desktop side panel) — reuses the exact same onEdit("photo")
+  // behavior as every other card's edit link, so there's no separate edit
+  // flow to maintain. Rendered in both places from one spot here (rather
+  // than inside MobileHero/PhotoPage themselves) since it's Step-5-specific,
+  // not something those two shared components should know about on their
+  // own. Sets its own dir — see .sub-preview-photo-edit-btn.
+  const photoEditOverlay = onEdit ? (
+    <button
+      type="button"
+      dir={lang === "HE" ? "rtl" : "ltr"}
+      className="sub-preview-photo-edit-btn"
+      onClick={() => onEdit("photo")}
+    >
+      {hasOwnPhoto ? <PencilIcon /> : <PhotoAddIcon size={12} />}
+      {hasOwnPhoto ? EDIT_LABEL[lang] : ADD_PHOTO_LABEL[lang]}
+    </button>
+  ) : undefined;
+  // Desktop-only: no own photo yet, so the side panel shows Step 4's own
+  // empty-state look (PhotoDropPanel in PhotoStep.tsx) — a dimmed cover-photo
+  // backdrop with a big "add photo" circle — instead of stacking the small
+  // pill above on top of the full-opacity fallback image. Mobile keeps the
+  // small pill (photoEditOverlay) either way; there's no separate "big"
+  // mobile treatment.
+  const desktopAddPhotoState =
+    onEdit && !hasOwnPhoto ? (
+      <>
+        {photoUrl && <img src={photoUrl} alt="" className="sub-photo-drop-backdrop" />}
+        <span className="sub-photo-add-circle">
+          <span className="sub-photo-add-icon">
+            <PhotoAddIcon />
+            <span className="sub-photo-add-badge">+</span>
+          </span>
+          <span className="sub-photo-add-label">{ADD_PHOTO_LABEL[lang]}</span>
+        </span>
+      </>
+    ) : undefined;
   return (
     <div className="sub-book-outer">
-      <MobileHero src={photoUrl} />
+      <MobileHero src={photoUrl} overlay={photoEditOverlay} />
       <div className="sub-book">
-        <BookTextPage {...pageProps} photoUrl={photoUrl} />
+        <BookTextPage {...pageProps} lang={lang} onEdit={onEdit} />
         <div className="sub-spine" />
-        <PhotoPage photoUrl={photoUrl} />
+        <PhotoPage
+          photoUrl={photoUrl}
+          overlay={photoEditOverlay}
+          emptyState={desktopAddPhotoState}
+          onEmptyStateClick={desktopAddPhotoState ? () => onEdit!("photo") : undefined}
+        />
       </div>
     </div>
   );

@@ -142,7 +142,11 @@ export const WIZARD_EXTRA_STYLES = `
   .sub-eyebrow { font-size: 13px; font-weight: 700; letter-spacing: 1.6px; text-transform: uppercase; color: #5838b8; margin: 0 0 8px; text-align: center; }
   .sub-heading { font-size: 26px; font-weight: 700; color: #1a1a1a; margin: 0 0 8px; text-align: center; }
 
-  .sub-date-input { width: 100%; padding: 12px 14px; font-size: 14px; border: 1px solid #e6e4e0; border-radius: 10px; background: #f7f6f4; box-sizing: border-box; }
+  /* Mobile default 18px / desktop 16px (@container below) — every guest-
+     facing text box across the wizard (this field, .sub-q-textarea,
+     .sub-text-input) shares this same pair of sizes; the previous flat 14px
+     read as too small, especially on mobile. */
+  .sub-date-input { width: 100%; padding: 12px 14px; font-size: 18px; border: 1px solid #e6e4e0; border-radius: 10px; background: #f7f6f4; box-sizing: border-box; }
   .sub-date-input::placeholder { color: #adabA6; }
 
   .sub-questions { display: grid; gap: 12px; margin: 4px 0 22px; }
@@ -160,7 +164,7 @@ export const WIZARD_EXTRA_STYLES = `
   .sub-q-textarea {
     width: 100%;
     padding: 10px 12px;
-    font-size: 14px;
+    font-size: 18px;
     line-height: 1.6;
     border: 1px solid #e6e4e0;
     border-radius: 8px;
@@ -227,7 +231,7 @@ export const WIZARD_EXTRA_STYLES = `
      writing" as .sub-q-textarea — used for short free-text fields like the
      blessing step's name field (previously borrowed .sub-date-input, which
      is meant to look like a muted display field, not an inviting one). */
-  .sub-text-input { width: 100%; padding: 10px 12px; font-size: 14px; border: 1px solid #e6e4e0; border-radius: 8px; box-sizing: border-box; font-family: inherit; background-color: #fff; }
+  .sub-text-input { width: 100%; padding: 10px 12px; font-size: 18px; border: 1px solid #e6e4e0; border-radius: 8px; box-sizing: border-box; font-family: inherit; background-color: #fff; }
 
   /* Step 4 (photo) — subtext under the heading, an inline hint box with a
      heart icon, an "or" divider, an outlined camera button, format/size
@@ -301,7 +305,9 @@ export const WIZARD_EXTRA_STYLES = `
     .sub-btn-send { background: #2f3f8f; }
     .sub-choose-option.selected { border-color: #2f3f8f; background: #eef1f8; }
     .sub-choose-radio.checked { background: #2f3f8f; border-color: #2f3f8f; }
-    .sub-q-textarea { background-color: #fff; }
+    .sub-q-textarea { background-color: #fff; font-size: 16px; }
+    .sub-text-input { font-size: 16px; }
+    .sub-date-input { font-size: 16px; }
     /* Original 2-buttons-in-a-row pattern, same as Step 5's actions.
        row-reverse (not row) so the JSX order [continue, back] still lands
        continue/primary opposite back, matching Step 5's [back, send] JSX
@@ -721,11 +727,15 @@ export default function SubmissionWizard({
           questions={questions}
           dateLocation={state.dateLocation}
           // Falls back to the project's cover photo once the guest hasn't
-          // uploaded one yet, same fallback "done" already uses — both the
-          // mobile hero banner and the review card's thumbnail use this same
+          // uploaded one yet, same fallback "done" already uses — the mobile
+          // hero banner and the desktop side panel both use this same
           // resolved value.
           photoUrl={state.photoPreviewUrl ?? coverImageUrl ?? null}
-          photoFileName={state.photo?.name ?? null}
+          // True once the guest has a photo of their own (freshly picked or
+          // previously uploaded) — false while photoUrl above is only the
+          // project's cover-photo fallback, so the "עריכה" pill/panel become
+          // an "הוספת תמונה" one instead (see SubmissionBook).
+          hasOwnPhoto={state.photoPreviewUrl !== null}
           blessingText={questionMode === "PICK_ONE" ? state.blessingText : null}
           blessingSignedBy={questionMode === "PICK_ONE" ? state.blessingSignedBy : null}
           onBackToEdit={() => dispatch({ type: "GO_TO_STEP", step: backToEditStep })}
@@ -736,6 +746,16 @@ export default function SubmissionWizard({
           error={state.submitError}
           stepNumber={displayStepNumber}
           stepTotal={displayStepTotal}
+          // A guest who already completed their submission (isCompleted, set
+          // once from the server on load) sees this same preview screen in a
+          // read/edit "already sent" state instead of the pre-send review —
+          // but only as long as nothing's actually changed since that last
+          // send (!hasChanges). The moment they edit anything (blessing,
+          // answer, photo) and land back here, hasChanges flips true and
+          // this reverts to the normal "before sending" screen — step
+          // eyebrow, progress bar and an enabled send button all come back,
+          // so they can actually send the updated version.
+          isSubmittedView={isCompleted && !hasChanges}
         />
       ) : state.step === "photoDate" ? (
         <div className="sub-book-outer">

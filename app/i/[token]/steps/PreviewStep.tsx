@@ -8,7 +8,7 @@ export default function PreviewStep({
   questions,
   dateLocation,
   photoUrl,
-  photoFileName,
+  hasOwnPhoto,
   blessingText,
   blessingSignedBy,
   onBackToEdit,
@@ -19,6 +19,7 @@ export default function PreviewStep({
   error,
   stepNumber,
   stepTotal,
+  isSubmittedView,
 }: {
   content: Record<Lang, LangContent>;
   lang: Lang;
@@ -26,7 +27,9 @@ export default function PreviewStep({
   questions: Question[];
   dateLocation: string;
   photoUrl: string | null;
-  photoFileName?: string | null;
+  // False when photoUrl is only the project's cover-photo fallback, not a
+  // real photo the guest uploaded — see SubmissionBook's same-named prop.
+  hasOwnPhoto?: boolean;
   blessingText?: string | null;
   blessingSignedBy?: string | null;
   onBackToEdit: () => void;
@@ -41,6 +44,13 @@ export default function PreviewStep({
   error: string | null;
   stepNumber: number;
   stepTotal: number;
+  // True for a returning guest who already completed their submission AND
+  // hasn't changed anything since — swaps the "before sending" review copy/
+  // progress bar/send button for an "already sent" message, while still
+  // allowing edits via the per-section edit links. Editing anything flips
+  // this back to the normal pre-send view. See SubmissionWizard's
+  // isCompleted && !hasChanges.
+  isSubmittedView?: boolean;
 }) {
   return (
     <SubmissionBook
@@ -50,7 +60,7 @@ export default function PreviewStep({
       questions={questions}
       dateLocation={dateLocation}
       photoUrl={photoUrl}
-      photoFileName={photoFileName}
+      hasOwnPhoto={hasOwnPhoto}
       blessingText={blessingText}
       blessingSignedBy={blessingSignedBy}
       onBackToEdit={onBackToEdit}
@@ -61,6 +71,7 @@ export default function PreviewStep({
       error={error}
       stepNumber={stepNumber}
       stepTotal={stepTotal}
+      isSubmittedView={isSubmittedView}
     />
   );
 }
