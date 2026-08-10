@@ -26,6 +26,7 @@ export default function LanguageCheckboxes({
         <label style={checkboxLabelStyle}>
           <input
             type="checkbox"
+            name="languageRu"
             checked={showRu}
             disabled={readOnly}
             onChange={(e) => onChangeRu(e.target.checked)}
@@ -36,6 +37,7 @@ export default function LanguageCheckboxes({
         <label style={checkboxLabelStyle}>
           <input
             type="checkbox"
+            name="languageEn"
             checked={showEn}
             disabled={readOnly}
             onChange={(e) => onChangeEn(e.target.checked)}

@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useReducer } from "react";
+import { useEffect, useReducer, useState } from "react";
 import { BOOK_STYLES, PhotoPage, MobileHero } from "./SubmissionBook";
 import AdjustableCoverHero from "./AdjustableCoverHero";
 import IntroStep from "./steps/IntroStep";
@@ -12,6 +12,7 @@ import BlessingStep from "./steps/BlessingStep";
 import PhotoStep, { PhotoDropPanel } from "./steps/PhotoStep";
 import PreviewStep from "./steps/PreviewStep";
 import DoneStep from "./steps/DoneStep";
+import { questionText } from "./types";
 import type { Lang, LangContent, Question, QuestionMode, StepId, WizardAction } from "./types";
 import type { IntroGuidance } from "./content";
 
@@ -50,7 +51,17 @@ function wizardReducer(state: WizardState, action: WizardAction): WizardState {
     case "SET_ANSWER":
       return { ...state, answers: { ...state.answers, [action.questionId]: action.text } };
     case "SET_ACTIVE_QUESTION":
-      return { ...state, activeQuestionId: action.id };
+      // Only ever dispatched from the PICK_ONE chooseQuestion step — exactly
+      // one question should ever be answered, so switching to a different
+      // question drops any other question's typed/saved answer instead of
+      // leaving it in state.answers alongside the new one (which used to
+      // mean handleConfirmFinal's Object.entries(state.answers) sent BOTH,
+      // saving two Answer rows for a project meant to have just one).
+      return {
+        ...state,
+        activeQuestionId: action.id,
+        answers: action.id ? { [action.id]: state.answers[action.id] ?? "" } : {},
+      };
     case "SET_BLESSING_TEXT":
       return { ...state, blessingText: action.text };
     case "SET_BLESSING_SIGNED_BY":
@@ -87,6 +98,19 @@ function wizardReducer(state: WizardState, action: WizardAction): WizardState {
 
 const STEP_ORDER_ALL: StepId[] = ["intro", "questions", "photoDate", "preview"];
 const STEP_ORDER_PICK_ONE: StepId[] = ["intro", "blessing", "chooseQuestion", "answerQuestion", "photo", "preview"];
+
+// Shown via a styled .sub-confirm-* dialog (not the native window.confirm)
+// before switching to a different question in PICK_ONE mode when the guest
+// already has a saved answer to another one — only one answer is ever kept
+// (see SET_ACTIVE_QUESTION's reducer case), so this is real, irreversible
+// data loss the guest should confirm first.
+const CHANGE_QUESTION_CONFIRM: Record<Lang, (oldQuestionText: string) => string> = {
+  HE: (q) => `שינית שאלה — התשובה הקודמת שלך ל"${q}" תימחק ותוחלף בתשובה החדשה. להמשיך?`,
+  RU: (q) => `Вы меняете вопрос — предыдущий ответ на «${q}» будет удалён и заменён новым. Продолжить?`,
+  EN: (q) => `You're changing your question — your previous answer to "${q}" will be deleted and replaced by the new one. Continue?`,
+};
+const CHANGE_QUESTION_CONFIRM_LABEL: Record<Lang, string> = { HE: "המשך", RU: "Продолжить", EN: "Continue" };
+const CHANGE_QUESTION_CANCEL_LABEL: Record<Lang, string> = { HE: "ביטול", RU: "Отмена", EN: "Cancel" };
 
 // PICK_ONE's chooseQuestion/answerQuestion are two screens for the same
 // logical "step 3" (choose a question, then write the answer) — displayed as
@@ -331,6 +355,25 @@ export const WIZARD_EXTRA_STYLES = `
     .sub-photo-inline-drop { display: none; }
     .sub-photo-hint-card { display: none; }
   }
+
+  /* PICK_ONE's "switching question" confirm — a real styled dialog instead
+     of the native window.confirm() popup, matching the rest of the book's
+     look (same purple/border-radius language as .sub-btn-send etc.). */
+  .sub-confirm-overlay {
+    position: fixed; inset: 0; background: rgba(0,0,0,0.45); z-index: 60;
+    display: flex; align-items: center; justify-content: center; padding: 24px; box-sizing: border-box;
+  }
+  .sub-confirm-card { width: min(380px, 100%); background: white; border-radius: 16px; padding: 22px 20px; box-sizing: border-box; }
+  .sub-confirm-text { font-size: 15px; color: #333; line-height: 1.6; margin: 0 0 18px; }
+  .sub-confirm-actions { display: flex; gap: 10px; }
+  .sub-confirm-btn-primary {
+    flex: 1; padding: 12px 0; border-radius: 10px; border: none; background: #5838b8; color: white;
+    font-size: 14px; font-weight: 700; cursor: pointer;
+  }
+  .sub-confirm-btn-secondary {
+    flex: 1; padding: 12px 0; border-radius: 10px; border: 1px solid #d8d6d1; background: white; color: #333;
+    font-size: 14px; font-weight: 700; cursor: pointer;
+  }
 `;
 
 export default function SubmissionWizard({
@@ -439,6 +482,11 @@ export default function SubmissionWizard({
     baselineDateLocation: existingDateLocation ?? "",
     baselinePhotoUrl: existingPhotoUrl ?? null,
   });
+
+  // Pending question switch awaiting the guest's confirmation in the
+  // .sub-confirm-* dialog (see handleChooseQuestion/CHANGE_QUESTION_CONFIRM
+  // above) — null means no dialog is showing.
+  const [pendingQuestionSwitch, setPendingQuestionSwitch] = useState<{ questionId: string; oldQuestionText: string } | null>(null);
 
   // Syncs an externally-owned language toggle (the admin preview's device
   // frame) into this wizard's own state — real guests never pass a
@@ -574,9 +622,22 @@ export default function SubmissionWizard({
     }
   }
 
-  function handleChooseQuestion(questionId: string) {
+  function switchToQuestion(questionId: string) {
     dispatch({ type: "SET_ACTIVE_QUESTION", id: questionId });
     dispatch({ type: "GO_TO_STEP", step: "answerQuestion" });
+  }
+
+  function handleChooseQuestion(questionId: string) {
+    const switchingAwayFromAnswered =
+      state.activeQuestionId &&
+      state.activeQuestionId !== questionId &&
+      (state.answers[state.activeQuestionId] ?? "").trim().length > 0;
+    if (switchingAwayFromAnswered) {
+      const oldQuestion = questions.find((q) => q.id === state.activeQuestionId);
+      setPendingQuestionSwitch({ questionId, oldQuestionText: oldQuestion ? questionText(oldQuestion, state.lang) : "" });
+      return;
+    }
+    switchToQuestion(questionId);
   }
 
   async function handleNextFromAnswerQuestion() {
@@ -681,6 +742,29 @@ export default function SubmissionWizard({
   return (
     <>
       <style>{`${BOOK_STYLES}${WIZARD_EXTRA_STYLES}`}</style>
+
+      {pendingQuestionSwitch && (
+        <div className="sub-confirm-overlay">
+          <div className="sub-confirm-card" dir={state.lang === "HE" ? "rtl" : "ltr"}>
+            <p className="sub-confirm-text">{CHANGE_QUESTION_CONFIRM[state.lang](pendingQuestionSwitch.oldQuestionText)}</p>
+            <div className="sub-confirm-actions">
+              <button
+                type="button"
+                className="sub-confirm-btn-primary"
+                onClick={() => {
+                  switchToQuestion(pendingQuestionSwitch.questionId);
+                  setPendingQuestionSwitch(null);
+                }}
+              >
+                {CHANGE_QUESTION_CONFIRM_LABEL[state.lang]}
+              </button>
+              <button type="button" className="sub-confirm-btn-secondary" onClick={() => setPendingQuestionSwitch(null)}>
+                {CHANGE_QUESTION_CANCEL_LABEL[state.lang]}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {previewMode && (
         <div

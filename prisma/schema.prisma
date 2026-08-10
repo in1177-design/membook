@@ -69,6 +69,12 @@ model Project {
   coverImagePositionY Int          @default(50)
   status             ProjectStatus @default(ACTIVE)
   defaultLanguage    Language      @default(HE)
+  // Which languages this album actually collects/shows content in. HE is always
+  // included (enforced in the admin UI, not here). Drives which languages the
+  // admin can assign to an invitee — see LanguageCheckboxes.tsx (the real,
+  // persisted "שפות הפרויקט" toggle) and the language gating in addInvitee/
+  // updateInvitee/updateInviteeLanguage/bulkAddInvitees (lib/actions.ts).
+  languages          Language[]    @default([HE])
   questionMode       QuestionMode  @default(ALL)
 
   // A warm, guest-facing headline shown at the top of the intro step — distinct
@@ -188,6 +194,9 @@ model Invitee {
 
   name     String
   phone    String?
+  // Optional contact email — not used for auth/login and not an identifier
+  // (no uniqueness constraint); purely a contact detail, same status as phone.
+  email    String?
   relation String?
   language Language?
 
@@ -264,6 +273,13 @@ model Submission {
   // (defaults to the invitee's registered name, but editable).
   blessingText     String?
   blessingSignedBy String?
+
+  // Admin-only supplementary text (AlbumPageView) — not tied to any of the
+  // project's configured questions, so it's not part of the guest wizard's
+  // own answer flow at all; only ever written via updateSubmissionAdditionalText
+  // in lib/actions.ts, for a submission the admin wants to add more to
+  // beyond what the guest actually answered.
+  additionalText String?
 
   // Set only when the participant confirms the final preview step — distinguishes
   // "in progress" (autosaved along the way) from "actually done". Null means the

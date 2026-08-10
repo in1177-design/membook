@@ -7,15 +7,20 @@ import type { Lang } from "../../../../i/[token]/types";
 export default function PreviewDeviceFrame({
   children,
   initialLanguage,
+  languages,
 }: {
   // The wrapped element (always <SubmissionWizard previewMode ... />) gets a
   // `lang` prop injected below so the language toggle here can drive it —
   // see the controlledLang sync effect in SubmissionWizard.tsx.
   children: ReactElement<{ lang?: Lang }>;
   initialLanguage: Lang;
+  // The album's real, persisted "שפות הפרויקט" config (project.languages) —
+  // only these are offered here, same rule as BuildPage.tsx's activeLangs.
+  languages: Lang[];
 }) {
   const [device, setDevice] = useState<"desktop" | "mobile">("desktop");
-  const [lang, setLang] = useState<Lang>(initialLanguage);
+  const availableLanguages = (["HE", "RU", "EN"] as Lang[]).filter((l) => l === "HE" || languages.includes(l));
+  const [lang, setLang] = useState<Lang>(availableLanguages.includes(initialLanguage) ? initialLanguage : "HE");
 
   return (
     <div>
@@ -30,7 +35,7 @@ export default function PreviewDeviceFrame({
         </div>
 
         <div style={{ display: "inline-flex", padding: 3, borderRadius: 999, background: "#f1efe9", border: `1px solid ${colors.border}` }}>
-          {(["HE", "RU", "EN"] as Lang[]).map((l) => (
+          {availableLanguages.map((l) => (
             <button key={l} type="button" onClick={() => setLang(l)} style={segmentStyle(lang === l)} aria-label={`שפה: ${l}`}>
               {l}
             </button>

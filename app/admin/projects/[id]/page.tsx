@@ -64,8 +64,17 @@ export default async function ProjectDetailPage({ params }: { params: Promise<{ 
         projectId={project.id}
         baseUrl={baseUrl}
         invitees={project.invitees}
-        questions={project.questions.map((q) => ({ id: q.id, text: q.textHe }))}
+        questions={project.questions.map((q) => ({
+          id: q.id,
+          textHe: q.textHe,
+          textRu: q.textRu,
+          textEn: q.textEn,
+          helperTextHe: q.helperTextHe,
+          helperTextRu: q.helperTextRu,
+          helperTextEn: q.helperTextEn,
+        }))}
         defaultLanguage={project.defaultLanguage}
+        enabledLanguages={project.languages}
         celebrantNames={project.celebrantNames ?? project.name}
         messageTemplates={{
           whatsappHe: project.whatsappTemplateHe,

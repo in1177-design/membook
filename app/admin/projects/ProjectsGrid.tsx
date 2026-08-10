@@ -21,6 +21,7 @@ type Project = {
   submissionDeadline: Date | null;
   notes: string | null;
   questionMode: "ALL" | "PICK_ONE";
+  languages: ("HE" | "RU" | "EN")[];
   introTextHe: string | null;
   introTextRu: string | null;
   introTextEn: string | null;

@@ -3,9 +3,11 @@
 import { useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import Drawer from "../Drawer";
+import Modal from "../Modal";
 import RelationSelect from "./RelationSelect";
-import SubmissionPreview from "./SubmissionPreview";
+import AlbumPageView from "./AlbumPageView";
 import ImportInviteesFromSheet from "./ImportInviteesFromSheet";
+import type { Lang } from "../../../i/[token]/types";
 import {
   addInvitee,
   updateInvitee,
@@ -23,6 +25,7 @@ type Invitee = {
   name2: string | null;
   relation: string | null;
   phone: string | null;
+  email: string | null;
   phone2: string | null;
   language: string | null;
   notes: string | null;
@@ -38,12 +41,26 @@ type Invitee = {
   submission: {
     submittedAt: Date;
     dateLocation: string | null;
+    blessingText: string | null;
+    blessingSignedBy: string | null;
+    additionalText: string | null;
     mediaAssets: { id: string; url: string }[];
     answers: { id: string; questionId: string; text: string }[];
   } | null;
 };
 
-type QuestionRef = { id: string; text: string };
+// Full multi-language shape (matches app/i/[token]/types.ts's Question) —
+// needed so AlbumPageView.tsx can render the real question text in whichever
+// language the invitee actually got, same as the guest wizard does.
+type QuestionRef = {
+  id: string;
+  textHe: string;
+  textRu: string | null;
+  textEn: string | null;
+  helperTextHe: string | null;
+  helperTextRu: string | null;
+  helperTextEn: string | null;
+};
 
 // Project-level message templates (see EditProjectForm.tsx's "הודעות
 // לאורחים" section) — one WhatsApp text + one email subject/body per
@@ -67,9 +84,23 @@ type Props = {
   invitees: Invitee[];
   questions: QuestionRef[];
   defaultLanguage: string;
+  // The album's real, persisted "שפות הפרויקט" config (project.languages —
+  // see LanguageCheckboxes.tsx/EditProjectForm.tsx). Gates every place an
+  // invitee's language gets picked in this file: AddInviteeForm,
+  // EditInviteeForm, LanguageCell, and ImportInviteesFromSheet. Always
+  // contains at least HE in practice (enforced by the checkbox UI), but code
+  // below stays defensive in case of stale/invalid data.
+  enabledLanguages: string[];
   celebrantNames: string;
   messageTemplates: MessageTemplates;
 };
+
+// Narrows the plain `string` we store (`invitee.language ?? defaultLanguage`)
+// to the real Lang union AlbumPageView needs — same fallback shape as
+// toLanguage() in lib/actions.ts, just client-side.
+function toLangCode(value: string): Lang {
+  return value === "RU" || value === "EN" ? value : "HE";
+}
 
 // Picks the He/Ru/En template trio for a guest's effective language (their
 // own `language`, falling back to the project default — same resolution
@@ -137,11 +168,13 @@ function statusOf(invitee: Invitee): keyof typeof STATUS_STYLE {
   return "pending";
 }
 
-export default function InviteesTable({ projectId, baseUrl, invitees, questions, defaultLanguage, celebrantNames, messageTemplates }: Props) {
+export default function InviteesTable({ projectId, baseUrl, invitees, questions, defaultLanguage, enabledLanguages, celebrantNames, messageTemplates }: Props) {
+  // Defensive fallback only — the checkbox UI always keeps HE enabled, so
+  // this should never actually be empty in practice.
+  const languages = enabledLanguages.length > 0 ? enabledLanguages : ["HE"];
   const [showAdd, setShowAdd] = useState(false);
   const [showImport, setShowImport] = useState(false);
   const [editingInvitee, setEditingInvitee] = useState<Invitee | null>(null);
-  const [viewingInvitee, setViewingInvitee] = useState<Invitee | null>(null);
   const [previewingInvitee, setPreviewingInvitee] = useState<Invitee | null>(null);
   const [copiedId, setCopiedId] = useState<string | null>(null);
 
@@ -206,7 +239,7 @@ export default function InviteesTable({ projectId, baseUrl, invitees, questions,
                       <div>
                         <button
                           type="button"
-                          onClick={() => setViewingInvitee(invitee)}
+                          onClick={() => setEditingInvitee(invitee)}
                           style={{ fontWeight: 600, background: "none", border: "none", padding: 0, cursor: "pointer", color: "inherit", font: "inherit", textDecoration: "underline", textUnderlineOffset: 3 }}
                         >
                           {invitee.name}
@@ -224,7 +257,7 @@ export default function InviteesTable({ projectId, baseUrl, invitees, questions,
                     )}
                   </td>
                   <td style={tdStyle}>
-                    <LanguageCell invitee={invitee} projectId={projectId} defaultLanguage={defaultLanguage} />
+                    <LanguageCell invitee={invitee} projectId={projectId} defaultLanguage={defaultLanguage} enabledLanguages={languages} />
                   </td>
                   <td style={tdStyle}>
                     <AttendingCell invitee={invitee} projectId={projectId} />
@@ -291,94 +324,38 @@ export default function InviteesTable({ projectId, baseUrl, invitees, questions,
 
       {showAdd && (
         <Drawer onClose={() => setShowAdd(false)}>
-          <AddInviteeForm projectId={projectId} defaultLanguage={defaultLanguage} onSaved={() => setShowAdd(false)} />
+          <AddInviteeForm projectId={projectId} defaultLanguage={defaultLanguage} enabledLanguages={languages} onSaved={() => setShowAdd(false)} />
         </Drawer>
       )}
 
       {showImport && (
         <Drawer onClose={() => setShowImport(false)}>
-          <ImportInviteesFromSheet projectId={projectId} defaultLanguage={defaultLanguage} onImported={() => setShowImport(false)} />
+          <ImportInviteesFromSheet projectId={projectId} defaultLanguage={defaultLanguage} enabledLanguages={languages} onImported={() => setShowImport(false)} />
         </Drawer>
       )}
 
       {editingInvitee && (
         <Drawer onClose={() => setEditingInvitee(null)}>
-          <EditInviteeForm projectId={projectId} invitee={editingInvitee} defaultLanguage={defaultLanguage} onSaved={() => setEditingInvitee(null)} />
-        </Drawer>
-      )}
-
-      {viewingInvitee && (
-        <Drawer onClose={() => setViewingInvitee(null)}>
-          <InviteeSubmissionView invitee={viewingInvitee} questions={questions} />
+          <EditInviteeForm projectId={projectId} invitee={editingInvitee} defaultLanguage={defaultLanguage} enabledLanguages={languages} onSaved={() => setEditingInvitee(null)} />
         </Drawer>
       )}
 
       {previewingInvitee && (
-        <Drawer onClose={() => setPreviewingInvitee(null)}>
-          <SubmissionPreview
+        <Modal onClose={() => setPreviewingInvitee(null)}>
+          <AlbumPageView
             inviteeId={previewingInvitee.id}
             projectId={projectId}
-            inviteeName={previewingInvitee.name}
-            photos={previewingInvitee.submission?.mediaAssets ?? []}
+            lang={toLangCode(previewingInvitee.language ?? defaultLanguage)}
+            questions={questions}
+            answers={Object.fromEntries((previewingInvitee.submission?.answers ?? []).map((a) => [a.questionId, a.text]))}
             dateLocation={previewingInvitee.submission?.dateLocation ?? null}
-            answers={(previewingInvitee.submission?.answers ?? []).map((a) => ({
-              questionText: questions.find((q) => q.id === a.questionId)?.text ?? "שאלה",
-              text: a.text,
-            }))}
+            blessingText={previewingInvitee.submission?.blessingText ?? null}
+            blessingSignedBy={previewingInvitee.submission?.blessingSignedBy ?? null}
+            additionalText={previewingInvitee.submission?.additionalText ?? null}
+            photo={previewingInvitee.submission?.mediaAssets[0] ?? null}
+            onClose={() => setPreviewingInvitee(null)}
           />
-        </Drawer>
-      )}
-    </div>
-  );
-}
-
-function InviteeSubmissionView({ invitee, questions }: { invitee: Invitee; questions: QuestionRef[] }) {
-  const sub = invitee.submission;
-  const questionById = new Map(questions.map((q) => [q.id, q.text]));
-  const photoUrl = sub?.mediaAssets[0]?.url ?? null;
-
-  return (
-    <div style={{ display: "grid", gap: 20 }}>
-      <div>
-        <h2 style={{ fontSize: 18, margin: 0 }}>
-          {invitee.name}
-          {invitee.name2 ? ` / ${invitee.name2}` : ""}
-        </h2>
-        <p style={{ fontSize: 13, color: "#999", margin: "4px 0 0" }}>מה שנשמר עד כה</p>
-      </div>
-
-      {!sub && <p style={{ color: "#999" }}>עדיין לא נשמר כלום מהמוזמן/ת הזה/ו.</p>}
-
-      {sub && (
-        <>
-          {photoUrl && (
-            <img src={photoUrl} alt="" style={{ width: "100%", borderRadius: 12, display: "block" }} />
-          )}
-
-          {sub.dateLocation && (
-            <div>
-              <span style={{ display: "block", fontSize: 11, fontWeight: 700, letterSpacing: 1, textTransform: "uppercase", color: "#999", marginBottom: 6 }}>
-                תאריך ומקום
-              </span>
-              <p style={{ margin: 0, fontSize: 14, color: "#333" }}>{sub.dateLocation}</p>
-            </div>
-          )}
-
-          {sub.answers.length === 0 && !photoUrl && !sub.dateLocation && (
-            <p style={{ color: "#999" }}>לא נכתב עדיין תוכן.</p>
-          )}
-
-          <div style={{ display: "grid", gap: 16 }}>
-            {sub.answers.map((a) => (
-              <div key={a.id}>
-                <span style={{ display: "block", fontSize: 12, fontWeight: 600, color: "#999", marginBottom: 4 }}>
-                  {questionById.get(a.questionId) ?? "שאלה"}
-                </span>
-                <p style={{ margin: 0, fontSize: 15, color: "#222", lineHeight: 1.7, whiteSpace: "pre-wrap" }}>{a.text}</p>
-              </div>
-            ))}
-          </div>
-        </>
+        </Modal>
       )}
     </div>
   );
@@ -465,10 +442,22 @@ function RowActions({
 
   const noLinkReason = "אין קישור אישי פעיל למוזמן/ת זה/ו";
   const noTemplateReason = "לא הוגדרה תבנית לשפה הזו (הגדרות הפרויקט)";
+  // Album-page preview needs a real submission to show — same disabled/dimmed
+  // pattern as CopyTemplateButton below (opacity + title, not hidden, so the
+  // row's icon layout stays stable regardless of status).
+  const noSubmissionReason = "המוזמן/ת עדיין לא שלח/ה — אין מה להציג";
+  const canPreview = Boolean(invitee.submission);
 
   return (
     <div style={{ display: "flex", gap: 6 }}>
-      <button type="button" onClick={onPreview} style={iconButtonStyle} title="עיון" aria-label="עיון">
+      <button
+        type="button"
+        onClick={canPreview ? onPreview : undefined}
+        disabled={!canPreview}
+        style={{ ...iconButtonStyle, opacity: canPreview ? 1 : 0.35, cursor: canPreview ? "pointer" : "default" }}
+        title={canPreview ? "עיון" : noSubmissionReason}
+        aria-label="עיון"
+      >
         <EyeIcon />
       </button>
       <button type="button" onClick={onEdit} style={iconButtonStyle} title="עריכה" aria-label="עריכה">
@@ -696,13 +685,30 @@ const LANGUAGE_TOGGLE_OPTIONS: { value: string; label: string }[] = [
   { value: "EN", label: "en" },
 ];
 
-function LanguageToggle({ value, onChange }: { value: string; onChange: (v: string) => void }) {
+// Picks the language(s) an invitee can be assigned to, per the UX spec:
+// only the album's enabled languages are offered, with `value` (the current
+// invitee's language) kept visible even if it's since been disabled for the
+// project, so an existing invitee's real state is never hidden — the admin
+// just can't newly select a disabled language going forward.
+function inviteeLanguageOptions(enabledLanguages: string[], value: string): { value: string; label: string }[] {
+  return LANGUAGE_TOGGLE_OPTIONS.filter((opt) => enabledLanguages.includes(opt.value) || opt.value === value);
+}
+
+function LanguageToggle({
+  value,
+  onChange,
+  options,
+}: {
+  value: string;
+  onChange: (v: string) => void;
+  options: { value: string; label: string }[];
+}) {
   return (
     <div>
       <span style={labelStyle}>שפה</span>
       <input type="hidden" name="language" value={value} />
       <div style={{ display: "flex", gap: 6 }}>
-        {LANGUAGE_TOGGLE_OPTIONS.map((opt) => (
+        {options.map((opt) => (
           <button
             key={opt.value}
             type="button"
@@ -812,9 +818,25 @@ function AttendingCell({ invitee, projectId }: { invitee: Invitee; projectId: st
   );
 }
 
-function LanguageCell({ invitee, projectId, defaultLanguage }: { invitee: Invitee; projectId: string; defaultLanguage: string }) {
+function LanguageCell({
+  invitee,
+  projectId,
+  defaultLanguage,
+  enabledLanguages,
+}: {
+  invitee: Invitee;
+  projectId: string;
+  defaultLanguage: string;
+  enabledLanguages: string[];
+}) {
   const router = useRouter();
   const effective = invitee.language ?? defaultLanguage;
+  // Same rule as LanguageToggle: only the album's enabled languages are
+  // offered, plus the invitee's current language even if it's since been
+  // disabled, so it stays visible/selectable-away-from rather than vanishing.
+  const options = (["HE", "RU", "EN"] as const)
+    .filter((v) => enabledLanguages.includes(v) || v === invitee.language)
+    .map((v) => ({ value: v, label: LANGUAGE_LABEL[v] }));
 
   async function handleSelect(value: string) {
     await updateInviteeLanguage(invitee.id, projectId, value as "HE" | "RU" | "EN");
@@ -824,11 +846,7 @@ function LanguageCell({ invitee, projectId, defaultLanguage }: { invitee: Invite
   return (
     <InlineChipMenu
       trigger={<span style={{ color: invitee.language ? "#333" : "#aaa", textDecoration: "underline", textUnderlineOffset: 3 }}>{LANGUAGE_LABEL[effective] ?? effective}</span>}
-      options={[
-        { value: "HE", label: "עברית" },
-        { value: "RU", label: "רוסית" },
-        { value: "EN", label: "אנגלית" },
-      ]}
+      options={options}
       onSelect={handleSelect}
     />
   );
@@ -837,16 +855,25 @@ function LanguageCell({ invitee, projectId, defaultLanguage }: { invitee: Invite
 function AddInviteeForm({
   projectId,
   defaultLanguage,
+  enabledLanguages,
   onSaved,
 }: {
   projectId: string;
   defaultLanguage: string;
+  enabledLanguages: string[];
   onSaved: () => void;
 }) {
   const router = useRouter();
   const [error, setError] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
-  const [language, setLanguage] = useState(defaultLanguage);
+  // One language -> auto-selected. Several -> preselect the album's default
+  // (falling back to the first enabled one if the default itself somehow
+  // isn't enabled).
+  const [language, setLanguage] = useState(() =>
+    enabledLanguages.length === 1 ? enabledLanguages[0] : enabledLanguages.includes(defaultLanguage) ? defaultLanguage : enabledLanguages[0] ?? ""
+  );
+  const options = LANGUAGE_TOGGLE_OPTIONS.filter((opt) => enabledLanguages.includes(opt.value));
+  const noLanguagesAvailable = enabledLanguages.length === 0;
 
   async function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
@@ -875,6 +902,10 @@ function AddInviteeForm({
             <span style={labelStyle}>טלפון</span>
             <input name="phone" style={inputStyle} />
           </label>
+          <label>
+            <span style={labelStyle}>אימייל</span>
+            <input name="email" type="email" style={inputStyle} />
+          </label>
         </div>
         <div style={{ display: "grid", gap: 10 }}>
           <label>
@@ -891,13 +922,16 @@ function AddInviteeForm({
         <span style={labelStyle}>קרבה</span>
         <RelationSelect />
       </div>
-      <LanguageToggle value={language} onChange={setLanguage} />
+      <LanguageToggle value={language} onChange={setLanguage} options={options} />
       <label>
         <span style={labelStyle}>הערות</span>
         <textarea name="notes" rows={3} style={{ ...inputStyle, resize: "vertical" }} />
       </label>
+      {noLanguagesAvailable && (
+        <p style={{ color: "#b00020", fontSize: 14 }}>לא הוגדרו שפות לפרויקט זה — אי אפשר להוסיף מוזמן. עדכני את שפות הפרויקט בהגדרות.</p>
+      )}
       {error && <p style={{ color: "#b00020", fontSize: 14 }}>{error}</p>}
-      <button type="submit" disabled={submitting} style={buttonStyle}>
+      <button type="submit" disabled={submitting || noLanguagesAvailable} style={buttonStyle}>
         {submitting ? "מוסיפה..." : "הוספת מוזמן"}
       </button>
     </form>
@@ -908,17 +942,22 @@ function EditInviteeForm({
   projectId,
   invitee,
   defaultLanguage,
+  enabledLanguages,
   onSaved,
 }: {
   projectId: string;
   invitee: Invitee;
   defaultLanguage: string;
+  enabledLanguages: string[];
   onSaved: () => void;
 }) {
   const router = useRouter();
   const [error, setError] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
   const [language, setLanguage] = useState(invitee.language ?? defaultLanguage);
+  // Keeps the invitee's current language visible/selectable-away-from even if
+  // it's since been disabled for the album (see inviteeLanguageOptions).
+  const options = inviteeLanguageOptions(enabledLanguages, language);
 
   async function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
@@ -947,6 +986,10 @@ function EditInviteeForm({
             <span style={labelStyle}>טלפון</span>
             <input name="phone" defaultValue={invitee.phone ?? ""} style={inputStyle} />
           </label>
+          <label>
+            <span style={labelStyle}>אימייל</span>
+            <input name="email" type="email" defaultValue={invitee.email ?? ""} style={inputStyle} />
+          </label>
         </div>
         <div style={{ display: "grid", gap: 10 }}>
           <label>
@@ -963,7 +1006,7 @@ function EditInviteeForm({
         <span style={labelStyle}>קרבה</span>
         <RelationSelect initialValue={invitee.relation ?? ""} />
       </div>
-      <LanguageToggle value={language} onChange={setLanguage} />
+      <LanguageToggle value={language} onChange={setLanguage} options={options} />
       <label>
         <span style={labelStyle}>הערות</span>
         <textarea name="notes" defaultValue={invitee.notes ?? ""} rows={3} style={{ ...inputStyle, resize: "vertical" }} />

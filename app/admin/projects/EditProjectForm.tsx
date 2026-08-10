@@ -24,6 +24,10 @@ type Props = {
     notes: string | null;
     coverImageUrl: string | null;
     questionMode: "ALL" | "PICK_ONE";
+    // Real, persisted "שפות הפרויקט" config (LanguageCheckboxes.tsx) — HE is
+    // always included. Drives which languages an invitee can be assigned;
+    // see InviteesTable.tsx's enabledLanguages prop.
+    languages: ("HE" | "RU" | "EN")[];
     introTextHe: string | null;
     introTextRu: string | null;
     introTextEn: string | null;
@@ -133,22 +137,12 @@ export default function EditProjectForm({ project, eventTypeOptions, questionTem
   const [submitting, setSubmitting] = useState(false);
   const [questionMode, setQuestionMode] = useState<"ALL" | "PICK_ONE">(project.questionMode);
   const [eventType, setEventType] = useState(project.eventType ?? "");
-  const [showRu, setShowRu] = useState(
-    Boolean(
-      project.introTextRu ||
-        project.photoRequestTextRu ||
-        project.blessingPromptTextRu ||
-        project.questions.some((q) => q.textRu || q.helperTextRu)
-    )
-  );
-  const [showEn, setShowEn] = useState(
-    Boolean(
-      project.introTextEn ||
-        project.photoRequestTextEn ||
-        project.blessingPromptTextEn ||
-        project.questions.some((q) => q.textEn || q.helperTextEn)
-    )
-  );
+  // Real, persisted source of truth now (project.languages) — previously this
+  // was inferred from whether any Ru/En text happened to exist anywhere on
+  // the project, which was never actually saved. See LanguageCheckboxes.tsx
+  // and updateProjectDetails's `languages` handling in lib/actions.ts.
+  const [showRu, setShowRu] = useState(project.languages.includes("RU"));
+  const [showEn, setShowEn] = useState(project.languages.includes("EN"));
 
   const [eventDate, setEventDate] = useState(toDateInputValue(project.eventDate));
   const [submissionDeadline, setSubmissionDeadline] = useState(toDateInputValue(project.submissionDeadline));

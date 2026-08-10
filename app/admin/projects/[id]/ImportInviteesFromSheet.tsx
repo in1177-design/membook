@@ -17,10 +17,14 @@ const LANGUAGE_OPTIONS: { value: LanguageCode; label: string }[] = [
 export default function ImportInviteesFromSheet({
   projectId,
   defaultLanguage,
+  enabledLanguages,
   onImported,
 }: {
   projectId: string;
   defaultLanguage: string;
+  // Same album-language gating as AddInviteeForm/EditInviteeForm in
+  // InviteesTable.tsx — only these languages are offered per row.
+  enabledLanguages: string[];
   onImported: () => void;
 }) {
   const router = useRouter();
@@ -31,7 +35,11 @@ export default function ImportInviteesFromSheet({
   const [importing, setImporting] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  const projectDefaultLanguage: LanguageCode = defaultLanguage === "RU" || defaultLanguage === "EN" ? defaultLanguage : "HE";
+  const languageOptions = LANGUAGE_OPTIONS.filter((opt) => enabledLanguages.includes(opt.value));
+  const fallbackLanguage: LanguageCode = languageOptions[0]?.value ?? "HE";
+  const projectDefaultLanguage: LanguageCode =
+    defaultLanguage === "RU" || defaultLanguage === "EN" ? defaultLanguage : "HE";
+  const initialRowLanguage: LanguageCode = enabledLanguages.includes(projectDefaultLanguage) ? projectDefaultLanguage : fallbackLanguage;
 
   async function handleLoad(e: React.FormEvent) {
     e.preventDefault();
@@ -43,7 +51,7 @@ export default function ImportInviteesFromSheet({
       if (found.length === 0) {
         setError(skipped > 0 ? "כל השורות בגיליון כבר קיימות ברשימת המוזמנים" : "לא נמצאו שורות עם שם בגיליון");
       } else {
-        setRows(found.map((r) => ({ ...r, name2: "", language: projectDefaultLanguage, include: true })));
+        setRows(found.map((r) => ({ ...r, name2: "", language: initialRowLanguage, include: true })));
       }
     } catch (err) {
       setError(err instanceof Error ? err.message : "משהו השתבש, נסי שוב");
@@ -92,8 +100,11 @@ export default function ImportInviteesFromSheet({
             placeholder="https://docs.google.com/spreadsheets/d/..."
             style={inputStyle}
           />
+          {languageOptions.length === 0 && (
+            <p style={{ color: "#b00020", fontSize: 14, margin: 0 }}>לא הוגדרו שפות לפרויקט זה — אי אפשר לייבא מוזמנים. עדכני את שפות הפרויקט בהגדרות.</p>
+          )}
           {error && <p style={{ color: "#b00020", fontSize: 14, margin: 0 }}>{error}</p>}
-          <button type="submit" disabled={loading} style={buttonStyle}>
+          <button type="submit" disabled={loading || languageOptions.length === 0} style={buttonStyle}>
             {loading ? "טוענת..." : "טעינת הגיליון"}
           </button>
         </form>
@@ -145,7 +156,7 @@ export default function ImportInviteesFromSheet({
                     </td>
                     <td style={previewTdStyle}>
                       <div style={{ display: "flex", gap: 3 }}>
-                        {LANGUAGE_OPTIONS.map((opt) => (
+                        {languageOptions.map((opt) => (
                           <button
                             key={opt.value}
                             type="button"

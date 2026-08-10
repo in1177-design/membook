@@ -1,4 +1,4 @@
-import type { ReactNode } from "react";
+import { useRef, useState, type ReactNode } from "react";
 import { STEP_OF_LABEL } from "./content";
 import { questionText, type Lang, type LangContent, type Question } from "./types";
 
@@ -38,6 +38,22 @@ const SUBMITTED_SUBTEXT: Record<Lang, string> = {
 const SEND_LABEL: Record<Lang, string> = { HE: "שליחה", RU: "Отправить", EN: "Send" };
 const SECTION_BLESSING_LABEL: Record<Lang, string> = { HE: "הברכה שלכם", RU: "Ваше пожелание", EN: "Your blessing" };
 const EDIT_LABEL: Record<Lang, string> = { HE: "עריכה", RU: "Изменить", EN: "Edit" };
+// Admin-only (AlbumPageView) copy — the "signed by" byline under the
+// blessing, and the "add a missing answer" affordance for a submission that
+// only ever had a blessing (a real, valid guest state — the final-submit
+// guard in app/api/submissions/route.ts accepts blessing-only content).
+const SIGNED_BY_LABEL: Record<Lang, string> = { HE: "מאת", RU: "От", EN: "From" };
+// Explicit save, next to every editable field — blur still saves too where
+// it reliably fires, but closing the modal via Escape doesn't always give a
+// textarea time to blur first, so this is the one guaranteed way to commit
+// an edit before leaving the section.
+const SAVE_LABEL: Record<Lang, string> = { HE: "שמור", RU: "Сохранить", EN: "Save" };
+const ADD_ADDITIONAL_TEXT_LABEL: Record<Lang, string> = {
+  HE: "+ הוספת מידע נוסף",
+  RU: "+ Добавить дополнительную информацию",
+  EN: "+ Add additional info",
+};
+const ADDITIONAL_TEXT_LABEL: Record<Lang, string> = { HE: "מידע נוסף", RU: "Дополнительно", EN: "Additional info" };
 // Same copy as Step 4's own "add photo" button (PhotoStep.tsx's
 // ADD_PHOTO_LABEL) — duplicated locally rather than imported, matching this
 // file's existing pattern of each step owning its own small icon/label set.
@@ -168,7 +184,7 @@ export const BOOK_STYLES = `
   .sub-preview-subtext { font-size: 16px; color: #8a8a8a; margin: 6px 0 0; text-align: center; white-space: pre-line; }
   .sub-preview-section { border: 1px solid #ece9e4; border-radius: 14px; padding: 16px 18px; margin-bottom: 14px; }
   .sub-preview-section-head { display: flex; align-items: center; justify-content: space-between; gap: 8px; margin: 0 0 10px; }
-  .sub-preview-section-title { display: flex; align-items: center; gap: 8px; font-size: 14px; font-weight: 700; color: #2b2b2b; margin: 0; }
+  .sub-preview-section-title { display: flex; align-items: center; gap: 8px; font-size: 14px; font-weight: 700; color: #2b2b2b; margin: 0; overflow-wrap: break-word; word-break: break-word; min-width: 0; }
   .sub-preview-section-icon { flex-shrink: 0; width: 26px; height: 26px; border-radius: 50%; background: #f1effb; display: flex; align-items: center; justify-content: center; color: #5838b8; }
   /* Same look for both — the blessing's body text and the Q&A's answer text
      are both just "the guest's own words" inside an already-bordered
@@ -176,7 +192,37 @@ export const BOOK_STYLES = `
      (a nested padded quote-box read as too far from the card's edge, out of
      step with the blessing text sitting flush against it). */
   .sub-preview-section-body,
-  .sub-preview-quote-box { font-size: 16px; color: #666; line-height: 1.7; margin: 0; white-space: pre-wrap; }
+  .sub-preview-quote-box {
+    font-size: 16px; color: #666; line-height: 1.7; margin: 0; white-space: pre-wrap;
+    overflow-wrap: break-word; word-break: break-word;
+  }
+
+  /* Admin-only (AlbumPageView) inline editing — same "you're editing this"
+     yellow highlight as .sub-photo-subtext-editable (SubmissionWizard.tsx),
+     reused here so both editable-text treatments in the app look the same. */
+  .sub-preview-editable-textarea {
+    width: 100%; resize: vertical; box-sizing: border-box; font-family: inherit;
+    font-size: 16px; color: #444; line-height: 1.7; overflow-wrap: break-word; word-break: break-word;
+    border: 1px solid #f0c419; background: #fdf6d8; border-radius: 8px; padding: 8px 10px;
+  }
+  .sub-preview-editable-textarea:focus { outline: 2px solid #f0c419; }
+  .sub-preview-save-btn {
+    display: block; margin-top: 8px; padding: 7px 18px; border-radius: 8px; border: none;
+    background: #5838b8; color: white; font-size: 13px; font-weight: 700; cursor: pointer;
+  }
+  .sub-preview-add-question-btn {
+    display: flex; align-items: center; justify-content: center; gap: 6px; width: 100%; box-sizing: border-box;
+    font-size: 13px; font-weight: 700; color: #5838b8; background: none; border: 1px dashed #c9c2ec;
+    border-radius: 10px; padding: 12px 14px; cursor: pointer;
+  }
+  /* "מאת" footer bar, sitting below every card (not nested inside the
+     blessing card) — matches the design sketch's light strip under both
+     cards rather than a byline glued to the blessing text. */
+  .sub-preview-signed-by-bar { margin-top: 4px; padding: 12px 16px; border-radius: 10px; background: #f7f6f4; font-size: 13px; color: #666; overflow-wrap: break-word; word-break: break-word; }
+  .sub-preview-signed-by-bar input {
+    font-size: 13px; color: #444; width: 220px; max-width: 100%; margin-inline-start: 6px;
+    border: 1px solid #f0c419; background: #fdf6d8; border-radius: 8px; padding: 4px 8px; box-sizing: border-box; font-family: inherit;
+  }
 
   /* Mobile default: both buttons full width, one below the other — same
      pattern as StepBottomNav (WIZARD_EXTRA_STYLES). Desktop keeps the
@@ -412,6 +458,11 @@ export function BookTextPage({
   stepTotal,
   isAdminPreview,
   isSubmittedView,
+  editableBlessing,
+  editableSignedBy,
+  editableAnswers,
+  editableAdditionalText,
+  pageCaption,
 }: {
   content: Record<Lang, LangContent>;
   lang: Lang;
@@ -424,7 +475,8 @@ export function BookTextPage({
   // Per-card "edit" links on the Step 5 review — jumps straight back to the
   // step that owns that card. Optional: omitted (e.g. the admin build page's
   // generic template preview) simply hides the links, since there's no real
-  // wizard state to jump to there.
+  // wizard state to jump to there. Ignored (not called) when the matching
+  // editableBlessing/editableAnswers prop below is present — see there.
   onEdit?: (step: "blessing" | "answerQuestion" | "photo") => void;
   onConfirm: () => void;
   isSubmitting: boolean;
@@ -447,20 +499,87 @@ export function BookTextPage({
   // work exactly the same either way, and editing anything flips this back
   // to false so the send button reappears.
   isSubmittedView?: boolean;
+  // Admin-only (AlbumPageView) inline editing — additive, the real guest
+  // wizard never passes these, so its onEdit (step-navigation) behavior is
+  // unaffected. When present, the "עריכה" pencil turns that section's own
+  // text into a controlled <textarea> in place (no navigation) instead of
+  // calling onEdit. See PhotoStepForm's identical isEditable pattern
+  // (app/i/[token]/steps/PhotoStep.tsx) — same idea, applied here.
+  editableBlessing?: { value: string; onChange: (v: string) => void; onBlur: () => void };
+  editableSignedBy?: { value: string; onChange: (v: string) => void; onBlur: () => void };
+  editableAnswers?: Record<string, { value: string; onChange: (v: string) => void; onBlur: () => void }>;
+  // A submission can legitimately have only a blessing and no answered
+  // question at all (see app/api/submissions/route.ts's final-submit guard —
+  // blessing text alone satisfies it). Not tied to any of the project's
+  // configured questions — a separate free-text block the admin can add.
+  editableAdditionalText?: { value: string; onChange: (v: string) => void; onBlur: () => void };
+  // Admin-only (AlbumPageView) — a caption rendered directly above the blessing
+  // card with eyebrow label and description text. Optional, passed only when
+  // this component is used in admin context (not for real guests).
+  pageCaption?: { label: string; description: string };
 }) {
   const c = content[lang];
   const answeredQuestions = questions.filter((q) => (answers[q.id] ?? "").trim().length > 0);
+  const isAdminEditable = Boolean(editableAnswers);
+
+  // Which section (if any) is currently showing its <textarea> instead of
+  // read-only text — "blessing", a questionId, "additional", or null. Only
+  // ever set via the editable* props' pencils below; the real guest wizard
+  // (no editable* props passed) never touches this. Reverts to read-only text
+  // as soon as the admin clicks/tabs away — the yellow "editing" box used to
+  // just stay open indefinitely with no visual confirmation anything saved.
+  const [editingSection, setEditingSection] = useState<string | null>(null);
+
+  // Blessing text + "מאת" live in two separate cards (see the signed-by
+  // footer bar below) but are one logical edit group, saved together — a
+  // plain onBlur on either control would close the group the instant the
+  // admin tabs from one into the other. Deferring the check to the next tick
+  // (by which point the browser has already moved focus) lets us tell "left
+  // the group" apart from "moved within it".
+  const blessingTextareaRef = useRef<HTMLTextAreaElement>(null);
+  const signedByInputRef = useRef<HTMLInputElement>(null);
+  function handleBlessingGroupBlur() {
+    window.setTimeout(() => {
+      const active = document.activeElement;
+      if (active !== blessingTextareaRef.current && active !== signedByInputRef.current) {
+        // Functional update, not a bare setEditingSection(null): if the admin
+        // clicked straight from here into a *different* section's "עריכה"
+        // pencil, that click's own onClick already ran (and set editingSection
+        // to the new section) before this deferred check fires — only clear
+        // if we're still actually in "blessing" by the time this runs.
+        setEditingSection((prev) => (prev === "blessing" ? null : prev));
+      }
+    }, 0);
+  }
+
+  // Explicit "שמור" click — the guaranteed save path (blur-based saving
+  // doesn't always get a chance to fire, e.g. closing the modal via Escape).
+  // Blessing text + signed-by save together via the same action either way,
+  // so calling editableBlessing.onBlur() alone covers both.
+  function commitBlessingEdit() {
+    editableBlessing?.onBlur();
+    setEditingSection(null);
+  }
 
   // The "before sending" question section: real answered question(s) for an
-  // actual guest, or — in the admin's generic template preview, where
-  // nothing's been answered yet — just the project's first configured
-  // question, shown with placeholder body text.
+  // actual guest, or the admin's generic template preview's single
+  // placeholder question. Admin edit mode (AlbumPageView) shows exactly the
+  // same answered questions — adding content unrelated to a configured
+  // question goes through editableAdditionalText below instead.
   const questionSections = isAdminPreview
     ? questions.slice(0, 1).map((q) => ({ q, answerText: null as string | null }))
     : answeredQuestions.map((q) => ({ q, answerText: answers[q.id] }));
 
   const summary = (
     <div>
+      {pageCaption && (
+        <>
+          <p style={{ fontSize: 11, fontWeight: 700, letterSpacing: 1.2, textTransform: "uppercase", color: "#999", margin: "0 0 4px" }}>
+            {pageCaption.label}
+          </p>
+          <p style={{ fontSize: 12, color: "#bbb", margin: "0 0 16px" }}>{pageCaption.description}</p>
+        </>
+      )}
       <div className="sub-preview-section">
         <div className="sub-preview-section-head">
           <p className="sub-preview-section-title">
@@ -469,40 +588,185 @@ export function BookTextPage({
             </span>
             {SECTION_BLESSING_LABEL[lang]}
           </p>
-          {onEdit && (
-            <button type="button" className="sub-preview-edit-link" onClick={() => onEdit("blessing")}>
-              <PencilIcon />
-              {EDIT_LABEL[lang]}
-            </button>
+          {editableBlessing ? (
+            editingSection !== "blessing" && (
+              <button type="button" className="sub-preview-edit-link" onClick={() => setEditingSection("blessing")}>
+                <PencilIcon />
+                {EDIT_LABEL[lang]}
+              </button>
+            )
+          ) : (
+            onEdit && (
+              <button type="button" className="sub-preview-edit-link" onClick={() => onEdit("blessing")}>
+                <PencilIcon />
+                {EDIT_LABEL[lang]}
+              </button>
+            )
           )}
         </div>
-        <p className="sub-preview-section-body">
-          {isAdminPreview ? ADMIN_PLACEHOLDER[lang] : blessingText?.trim() || ADMIN_PLACEHOLDER[lang]}
-        </p>
+        {editableBlessing && editingSection === "blessing" ? (
+          <>
+            <textarea
+              ref={blessingTextareaRef}
+              className="sub-preview-editable-textarea"
+              rows={3}
+              value={editableBlessing.value}
+              onChange={(e) => editableBlessing.onChange(e.target.value)}
+              onBlur={() => {
+                editableBlessing.onBlur();
+                handleBlessingGroupBlur();
+              }}
+              autoFocus
+            />
+            <button type="button" className="sub-preview-save-btn" onClick={commitBlessingEdit}>
+              {SAVE_LABEL[lang]}
+            </button>
+          </>
+        ) : (
+          <p className="sub-preview-section-body">
+            {isAdminPreview ? ADMIN_PLACEHOLDER[lang] : blessingText?.trim() || ADMIN_PLACEHOLDER[lang]}
+          </p>
+        )}
       </div>
 
-      {questionSections.map(({ q, answerText }) => (
-        <div className="sub-preview-section" key={q.id}>
+      {questionSections.map(({ q, answerText }) => {
+        const editableAnswer = editableAnswers?.[q.id];
+        const isEditingThis = editingSection === q.id;
+        return (
+          <div className="sub-preview-section" key={q.id}>
+            <div className="sub-preview-section-head">
+              {/* The generic "השאלה והתשובה" label is gone — the actual
+                  question now doubles as this card's title, same slot/style
+                  the blessing card's label sits in above. */}
+              <p className="sub-preview-section-title">
+                <span className="sub-preview-section-icon">
+                  <ChatIcon />
+                </span>
+                {questionText(q, lang)}
+              </p>
+              {editableAnswer ? (
+                !isEditingThis && (
+                  <button type="button" className="sub-preview-edit-link" onClick={() => setEditingSection(q.id)}>
+                    <PencilIcon />
+                    {EDIT_LABEL[lang]}
+                  </button>
+                )
+              ) : (
+                onEdit && (
+                  <button type="button" className="sub-preview-edit-link" onClick={() => onEdit("answerQuestion")}>
+                    <PencilIcon />
+                    {EDIT_LABEL[lang]}
+                  </button>
+                )
+              )}
+            </div>
+            {editableAnswer && isEditingThis ? (
+              <>
+                <textarea
+                  className="sub-preview-editable-textarea"
+                  rows={3}
+                  value={editableAnswer.value}
+                  onChange={(e) => editableAnswer.onChange(e.target.value)}
+                  onBlur={() => {
+                    editableAnswer.onBlur();
+                    setEditingSection(null);
+                  }}
+                  autoFocus
+                />
+                <button
+                  type="button"
+                  className="sub-preview-save-btn"
+                  onClick={() => {
+                    editableAnswer.onBlur();
+                    setEditingSection(null);
+                  }}
+                >
+                  {SAVE_LABEL[lang]}
+                </button>
+              </>
+            ) : (
+              <div className="sub-preview-quote-box">{answerText ?? ADMIN_PLACEHOLDER[lang]}</div>
+            )}
+          </div>
+        );
+      })}
+
+      {/* Admin-only free-text block, unrelated to any configured question —
+          shown as its own card once it has content (or while being added),
+          otherwise just the "+" button below. */}
+      {editableAdditionalText && (editableAdditionalText.value || editingSection === "additional") ? (
+        <div className="sub-preview-section">
           <div className="sub-preview-section-head">
-            {/* The generic "השאלה והתשובה" label is gone — the actual
-                question now doubles as this card's title, same slot/style
-                the blessing card's label sits in above. */}
             <p className="sub-preview-section-title">
               <span className="sub-preview-section-icon">
                 <ChatIcon />
               </span>
-              {questionText(q, lang)}
+              {ADDITIONAL_TEXT_LABEL[lang]}
             </p>
-            {onEdit && (
-              <button type="button" className="sub-preview-edit-link" onClick={() => onEdit("answerQuestion")}>
+            {editingSection !== "additional" && (
+              <button type="button" className="sub-preview-edit-link" onClick={() => setEditingSection("additional")}>
                 <PencilIcon />
                 {EDIT_LABEL[lang]}
               </button>
             )}
           </div>
-          <div className="sub-preview-quote-box">{answerText ?? ADMIN_PLACEHOLDER[lang]}</div>
+          {editingSection === "additional" ? (
+            <>
+              <textarea
+                className="sub-preview-editable-textarea"
+                rows={3}
+                value={editableAdditionalText.value}
+                onChange={(e) => editableAdditionalText.onChange(e.target.value)}
+                onBlur={() => {
+                  editableAdditionalText.onBlur();
+                  setEditingSection(null);
+                }}
+                autoFocus
+              />
+              <button
+                type="button"
+                className="sub-preview-save-btn"
+                onClick={() => {
+                  editableAdditionalText.onBlur();
+                  setEditingSection(null);
+                }}
+              >
+                {SAVE_LABEL[lang]}
+              </button>
+            </>
+          ) : (
+            <div className="sub-preview-quote-box">{editableAdditionalText.value}</div>
+          )}
         </div>
-      ))}
+      ) : (
+        editableAdditionalText && (
+          <button type="button" className="sub-preview-add-question-btn" onClick={() => setEditingSection("additional")}>
+            {ADD_ADDITIONAL_TEXT_LABEL[lang]}
+          </button>
+        )
+      )}
+
+      {/* "מאת" — admin-only, shown as its own footer bar below every card
+          (not glued to the blessing text), toggled by the same blessing edit
+          state since it's saved together via the same action. */}
+      {editableSignedBy && (
+        <div className="sub-preview-signed-by-bar">
+          {SIGNED_BY_LABEL[lang]}:
+          {editingSection === "blessing" ? (
+            <input
+              ref={signedByInputRef}
+              value={editableSignedBy.value}
+              onChange={(e) => editableSignedBy.onChange(e.target.value)}
+              onBlur={() => {
+                editableSignedBy.onBlur();
+                handleBlessingGroupBlur();
+              }}
+            />
+          ) : (
+            <> {editableSignedBy.value}</>
+          )}
+        </div>
+      )}
     </div>
   );
 
@@ -524,35 +788,50 @@ export function BookTextPage({
             <StepProgress current={stepNumber ?? 0} total={stepTotal ?? 0} />
           </>
         )}
-        <h1 className="sub-heading">{isSubmittedView ? SUBMITTED_HEADING[lang] : PREVIEW_HEADING[lang]}</h1>
-        <p className="sub-preview-subtext">{isSubmittedView ? SUBMITTED_SUBTEXT[lang] : PREVIEW_SUBTEXT[lang]}</p>
+        {/* AlbumPageView supplies its own plain "תצוגת דף אלבום" caption above
+            this whole component instead — the guest-facing "already sent"
+            heading/subtext would be redundant (and inaccurate, e.g. for an
+            invitee who hasn't actually sent anything yet) inside the admin's
+            own preview modal. */}
+        {!isAdminEditable && (
+          <>
+            <h1 className="sub-heading">{isSubmittedView ? SUBMITTED_HEADING[lang] : PREVIEW_HEADING[lang]}</h1>
+            <p className="sub-preview-subtext">{isSubmittedView ? SUBMITTED_SUBTEXT[lang] : PREVIEW_SUBTEXT[lang]}</p>
+          </>
+        )}
       </div>
       <div className="sub-page-form-scroll">{summary}</div>
-      <div className="sub-page-form-bottom">
-        {error && <p style={{ color: "#b00020", marginBottom: 10, fontSize: 13 }}>{error}</p>}
-        <div className="sub-preview-actions">
-          <button type="button" className="sub-preview-btn-back" onClick={onBackToEdit} disabled={isSubmitting}>
-            {c.backToEditLabel}
-          </button>
-          {/* Already sent with nothing changed since — nothing to submit, so
-              this stays hidden. Editing anything (via the per-card edit
-              links above or "back to editing" on the left) flips
-              isSubmittedView back to false once the guest returns here,
-              which brings this button right back so they can send the
-              updated version. */}
-          {!isSubmittedView && (
-            <button
-              type="button"
-              className="sub-preview-btn-send"
-              onClick={onConfirm}
-              disabled={isSubmitting || confirmDisabled}
-            >
-              <SendIcon />
-              {isSubmitting ? "..." : SEND_LABEL[lang]}
+      {/* Same reasoning: "back to editing" only makes sense mid-wizard, for a
+          real guest — AlbumPageView's modal has its own X close button
+          (Modal.tsx), so this whole bar (and the send button, already hidden
+          via isSubmittedView) is skipped entirely in admin edit mode. */}
+      {!isAdminEditable && (
+        <div className="sub-page-form-bottom">
+          {error && <p style={{ color: "#b00020", marginBottom: 10, fontSize: 13 }}>{error}</p>}
+          <div className="sub-preview-actions">
+            <button type="button" className="sub-preview-btn-back" onClick={onBackToEdit} disabled={isSubmitting}>
+              {c.backToEditLabel}
             </button>
-          )}
+            {/* Already sent with nothing changed since — nothing to submit, so
+                this stays hidden. Editing anything (via the per-card edit
+                links above or "back to editing" on the left) flips
+                isSubmittedView back to false once the guest returns here,
+                which brings this button right back so they can send the
+                updated version. */}
+            {!isSubmittedView && (
+              <button
+                type="button"
+                className="sub-preview-btn-send"
+                onClick={onConfirm}
+                disabled={isSubmitting || confirmDisabled}
+              >
+                <SendIcon />
+                {isSubmitting ? "..." : SEND_LABEL[lang]}
+              </button>
+            )}
+          </div>
         </div>
-      </div>
+      )}
     </div>
   );
 }

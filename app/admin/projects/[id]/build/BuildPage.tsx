@@ -12,7 +12,6 @@ import AdjustableCoverHero from "../../../../i/[token]/AdjustableCoverHero";
 import { WIZARD_EXTRA_STYLES } from "../../../../i/[token]/SubmissionWizard";
 import { CONTENT, introGuidanceFor, eventTypeLabelFor, PICK_ONE_FALLBACK_TEXT } from "../../../../i/[token]/content";
 import type { Lang, Question } from "../../../../i/[token]/types";
-import LanguageCheckboxes from "../../LanguageCheckboxes";
 import { updateProjectGuestText, updateProjectQuestions, deleteProjectQuestion } from "../../../../../lib/actions";
 import { colors } from "../../formStyles";
 
@@ -33,6 +32,12 @@ type ProjectData = {
   coverImageUrl: string | null;
   coverImagePositionY: number;
   questionMode: "ALL" | "PICK_ONE";
+  // The album's real, persisted "שפות הפרויקט" config (project.languages) —
+  // see EditProjectForm.tsx/LanguageCheckboxes.tsx, the canonical place this
+  // is edited. Drives activeLangs below and the preview-mode language toggle
+  // (both here and in PreviewDeviceFrame.tsx) — this page only reflects it,
+  // it doesn't own a separate editable copy anymore.
+  languages: ("HE" | "RU" | "EN")[];
   guestHeadlineHe: string | null;
   guestHeadlineRu: string | null;
   guestHeadlineEn: string | null;
@@ -99,12 +104,14 @@ export default function BuildPage({ project }: { project: ProjectData }) {
   // the preview/done tabs reflects a drag immediately, without waiting for
   // updateCoverImagePosition's revalidatePath to reach a fresh page load.
   const [coverPositionY, setCoverPositionY] = useState(project.coverImagePositionY);
-  const [showRu, setShowRu] = useState(
-    Boolean(project.guestHeadlineRu || project.introTextRu || project.blessingPromptTextRu || project.photoRequestTextRu)
-  );
-  const [showEn, setShowEn] = useState(
-    Boolean(project.guestHeadlineEn || project.introTextEn || project.blessingPromptTextEn || project.photoRequestTextEn)
-  );
+  // Drives activeLangs below (which columns/preview-languages show) — reads
+  // the real, persisted "שפות הפרויקט" config (project.languages), edited on
+  // the settings page (EditProjectForm.tsx/LanguageCheckboxes.tsx). Used to
+  // be its own local, unpersisted heuristic with its own disconnected
+  // checkbox UI right here; that's gone now, this just reflects the real
+  // config.
+  const showRu = project.languages.includes("RU");
+  const showEn = project.languages.includes("EN");
 
   const [headline, setHeadline] = useState<Record<Lang, string>>({
     HE: project.guestHeadlineHe ?? "",
@@ -281,9 +288,6 @@ export default function BuildPage({ project }: { project: ProjectData }) {
             {saveStatus === "saved" && "נשמר"}
             {saveStatus === "error" && "שגיאת שמירה"}
           </span>
-          <div style={{ width: 230 }}>
-            <LanguageCheckboxes showRu={showRu} showEn={showEn} onChangeRu={setShowRu} onChangeEn={setShowEn} />
-          </div>
         </div>
       </div>
 

@@ -15,6 +15,35 @@ function toLanguage(value: FormDataEntryValue | null): Language {
   return value === "RU" || value === "EN" ? value : "HE";
 }
 
+// Standard, permissive email-shape check — good enough to catch typos without
+// being a strict RFC 5322 validator. Only applied when a value is actually
+// present; an empty/omitted email is always valid (the field is optional).
+const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+
+// Shared by addInvitee/updateInvitee: trims, treats blank as null (optional
+// field), and only validates format when non-empty — never required.
+function parseOptionalEmail(formData: FormData): string | null {
+  const email = String(formData.get("email") ?? "").trim();
+  if (!email) return null;
+  if (!EMAIL_REGEX.test(email)) throw new Error("כתובת האימייל אינה תקינה");
+  return email;
+}
+
+// Server-side guard behind every place an invitee's language gets saved
+// (addInvitee/updateInvitee/updateInviteeLanguage/bulkAddInvitees) — mirrors
+// the client-side filtering in InviteesTable.tsx's LanguageToggle/LanguageCell,
+// but is the real enforcement point since those are just UI. `null` (no
+// explicit invitee language — falls back to the project's defaultLanguage) is
+// always allowed.
+async function assertLanguageEnabled(projectId: string, language: Language | null) {
+  if (!language) return;
+  const project = await prisma.project.findUnique({ where: { id: projectId }, select: { languages: true } });
+  if (!project) throw new Error("הפרויקט לא נמצא");
+  if (!project.languages.includes(language)) {
+    throw new Error("השפה שנבחרה אינה מוגדרת עבור הפרויקט הזה");
+  }
+}
+
 function toQuestionMode(value: FormDataEntryValue | null): QuestionMode {
   return value === "PICK_ONE" ? "PICK_ONE" : "ALL";
 }
@@ -149,6 +178,17 @@ export async function updateProjectDetails(projectId: string, formData: FormData
   const emailBodyTemplateRu = String(formData.get("emailBodyTemplateRu") ?? "").trim() || null;
   const emailBodyTemplateEn = String(formData.get("emailBodyTemplateEn") ?? "").trim() || null;
 
+  // "שפות הפרויקט" checkboxes (LanguageCheckboxes.tsx) — HE is always on (not
+  // submitted, enforced here) and Ru/En are real on/off toggles now. This is
+  // the source of truth used to gate which language an invitee can be given —
+  // see toLanguage/assertLanguageEnabled and addInvitee/updateInvitee/
+  // updateInviteeLanguage/bulkAddInvitees below.
+  const languages: Language[] = [
+    "HE",
+    ...(formData.get("languageRu") === "on" ? (["RU"] as const) : []),
+    ...(formData.get("languageEn") === "on" ? (["EN"] as const) : []),
+  ];
+
   const questionIds = formData.getAll("questionId").map((v) => String(v).trim());
   const questionTexts = formData.getAll("questionText").map((v) => String(v).trim());
   const questionTextsRu = formData.getAll("questionTextRu").map((v) => String(v).trim());
@@ -173,6 +213,7 @@ export async function updateProjectDetails(projectId: string, formData: FormData
           notes,
           coverImageUrl,
           questionMode,
+          languages,
           introTextHe,
           introTextRu,
           introTextEn,
@@ -375,10 +416,12 @@ export async function addInvitee(projectId: string, formData: FormData) {
   const relationOther = String(formData.get("relationOther") ?? "").trim();
   const relation = (relationSelect === "__other__" ? relationOther : relationSelect) || null;
   const phone = String(formData.get("phone") ?? "").trim() || null;
+  const email = parseOptionalEmail(formData);
   const name2 = String(formData.get("name2") ?? "").trim() || null;
   const phone2 = String(formData.get("phone2") ?? "").trim() || null;
   const languageRaw = formData.get("language");
   const language = languageRaw ? toLanguage(languageRaw) : null;
+  await assertLanguageEnabled(projectId, language);
   const notes = String(formData.get("notes") ?? "").trim() || null;
 
   await prisma.invitee.create({
@@ -387,6 +430,7 @@ export async function addInvitee(projectId: string, formData: FormData) {
       name,
       relation,
       phone,
+      email,
       name2,
       phone2,
       language,
@@ -413,15 +457,17 @@ export async function updateInvitee(inviteeId: string, projectId: string, formDa
   const relationOther = String(formData.get("relationOther") ?? "").trim();
   const relation = (relationSelect === "__other__" ? relationOther : relationSelect) || null;
   const phone = String(formData.get("phone") ?? "").trim() || null;
+  const email = parseOptionalEmail(formData);
   const name2 = String(formData.get("name2") ?? "").trim() || null;
   const phone2 = String(formData.get("phone2") ?? "").trim() || null;
   const languageRaw = formData.get("language");
   const language = languageRaw ? toLanguage(languageRaw) : null;
+  await assertLanguageEnabled(projectId, language);
   const notes = String(formData.get("notes") ?? "").trim() || null;
 
   await prisma.invitee.update({
     where: { id: inviteeId },
-    data: { name, relation, phone, name2, phone2, language, notes },
+    data: { name, relation, phone, email, name2, phone2, language, notes },
   });
 
   revalidatePath(`/admin/projects/${projectId}`);
@@ -434,6 +480,7 @@ export async function updateInviteeAttending(inviteeId: string, projectId: strin
 }
 
 export async function updateInviteeLanguage(inviteeId: string, projectId: string, language: "HE" | "RU" | "EN") {
+  await assertLanguageEnabled(projectId, language);
   await prisma.invitee.update({ where: { id: inviteeId }, data: { language } });
   revalidatePath(`/admin/projects/${projectId}`);
 }
@@ -474,6 +521,67 @@ export async function regenerateInviteLink(inviteLinkId: string, projectId: stri
       firstViewedAt: null,
       lastViewedAt: null,
     },
+  });
+  revalidatePath(`/admin/projects/${projectId}`);
+}
+
+// Lets the admin correct/add the blessing text (and its "מאת" signature) from
+// AlbumPageView's inline editor — upserts by inviteeId, same as every other
+// submission write in this file, so it's always the invitee's one real
+// Submission row, never a duplicate. Deliberately doesn't touch completedAt
+// (only the guest's own final send sets that) or bump submittedAt (that means
+// "guest last touched this", not "anyone last touched this").
+export async function updateSubmissionBlessing(
+  inviteeId: string,
+  projectId: string,
+  blessingText: string,
+  blessingSignedBy: string
+) {
+  const text = blessingText.trim() || null;
+  const signedBy = blessingSignedBy.trim() || null;
+  await prisma.submission.upsert({
+    where: { inviteeId },
+    create: { inviteeId, blessingText: text, blessingSignedBy: signedBy },
+    update: { blessingText: text, blessingSignedBy: signedBy },
+  });
+  revalidatePath(`/admin/projects/${projectId}`);
+}
+
+// Admin-only supplementary text, not tied to any configured question (see
+// Submission.additionalText's comment in schema.prisma) — same upsert-by-
+// inviteeId / null-on-empty pattern as updateSubmissionBlessing.
+export async function updateSubmissionAdditionalText(inviteeId: string, projectId: string, text: string) {
+  const trimmed = text.trim() || null;
+  await prisma.submission.upsert({
+    where: { inviteeId },
+    create: { inviteeId, additionalText: trimmed },
+    update: { additionalText: trimmed },
+  });
+  revalidatePath(`/admin/projects/${projectId}`);
+}
+
+// Same idea for a single question's answer — mirrors app/api/submissions/
+// route.ts's own Answer upsert (unique on [submissionId, questionId], so
+// there's ever only one Answer row per question on a submission). Clearing
+// the text to empty deletes the row instead of saving a blank string, so the
+// question's card correctly disappears again (matches "unanswered" — see
+// BookTextPage's answeredQuestions filter) rather than showing an empty box.
+export async function updateSubmissionAnswer(inviteeId: string, projectId: string, questionId: string, text: string) {
+  const submission = await prisma.submission.upsert({
+    where: { inviteeId },
+    create: { inviteeId },
+    update: {},
+  });
+  const trimmed = text.trim();
+  if (!trimmed) {
+    await prisma.answer.deleteMany({ where: { submissionId: submission.id, questionId } });
+    revalidatePath(`/admin/projects/${projectId}`);
+    return;
+  }
+  await prisma.answer.upsert({
+    where: { submissionId_questionId: { submissionId: submission.id, questionId } },
+    create: { submissionId: submission.id, questionId, text: trimmed },
+    update: { text: trimmed },
   });
   revalidatePath(`/admin/projects/${projectId}`);
 }
@@ -605,19 +713,29 @@ export async function bulkAddInvitees(
   const valid = rows.filter((r) => r.name.trim());
   if (valid.length === 0) return { count: 0 };
 
+  // ImportInviteesFromSheet.tsx already only offers the project's enabled
+  // languages per row, so this is a defensive fallback (not a hard reject —
+  // one stale row shouldn't fail an entire batch import): any row whose
+  // language isn't actually enabled for the project falls back to the
+  // project's own default language instead.
+  const project = await prisma.project.findUnique({ where: { id: projectId }, select: { languages: true, defaultLanguage: true } });
+  if (!project) throw new Error("הפרויקט לא נמצא");
+
   await prisma.$transaction(
-    valid.map((r) =>
-      prisma.invitee.create({
+    valid.map((r) => {
+      const requested = r.language ? toLanguage(r.language) : null;
+      const language = requested && project.languages.includes(requested) ? requested : null;
+      return prisma.invitee.create({
         data: {
           projectId,
           name: r.name.trim(),
           phone: normalizeIsraeliPhone(r.phone) || null,
           name2: r.name2?.trim() || null,
-          language: r.language ? toLanguage(r.language) : null,
+          language,
           inviteLink: { create: { token: generateToken() } },
         },
-      })
-    )
+      });
+    })
   );
 
   revalidatePath(`/admin/projects/${projectId}`);

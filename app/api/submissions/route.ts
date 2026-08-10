@@ -103,6 +103,18 @@ export async function POST(req: NextRequest) {
       },
     });
 
+    // PICK_ONE means exactly one answer should ever exist for a submission —
+    // the wizard's own reducer now only ever sends the currently-chosen
+    // question (see SET_ACTIVE_QUESTION in SubmissionWizard.tsx), but this is
+    // the real enforcement point: delete any other previously-saved answer
+    // whenever a new one comes in, so switching questions never leaves two
+    // rows behind regardless of what any given client happens to send.
+    if (cleanAnswers.length > 0 && project.questionMode === "PICK_ONE") {
+      await tx.answer.deleteMany({
+        where: { submissionId: submission.id, questionId: { notIn: cleanAnswers.map((a) => a.questionId) } },
+      });
+    }
+
     for (const answer of cleanAnswers) {
       await tx.answer.upsert({
         where: { submissionId_questionId: { submissionId: submission.id, questionId: answer.questionId } },

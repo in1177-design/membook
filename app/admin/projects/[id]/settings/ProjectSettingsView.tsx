@@ -17,6 +17,7 @@ type ProjectData = {
   notes: string | null;
   coverImageUrl: string | null;
   questionMode: "ALL" | "PICK_ONE";
+  languages: ("HE" | "RU" | "EN")[];
   introTextHe: string | null;
   introTextRu: string | null;
   introTextEn: string | null;
