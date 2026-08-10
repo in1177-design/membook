@@ -144,6 +144,7 @@ export default async function InviteePage({ params }: { params: Promise<{ token:
             photoRequestTexts={photoRequestTexts}
             blessingPromptTexts={blessingPromptTexts}
             coverImageUrl={project.coverImageUrl}
+            coverImagePositionY={project.coverImagePositionY}
             initialLanguage={language}
             questions={questions}
             questionMode={project.questionMode}

@@ -71,6 +71,8 @@ export default async function ProjectFormPreviewPage({ params }: { params: Promi
           photoRequestTexts={photoRequestTexts}
           blessingPromptTexts={blessingPromptTexts}
           coverImageUrl={project.coverImageUrl}
+          coverImagePositionY={project.coverImagePositionY}
+          projectId={project.id}
           initialLanguage={project.defaultLanguage}
           questions={questions}
           questionMode={project.questionMode}

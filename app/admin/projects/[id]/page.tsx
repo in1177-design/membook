@@ -66,6 +66,18 @@ export default async function ProjectDetailPage({ params }: { params: Promise<{ 
         invitees={project.invitees}
         questions={project.questions.map((q) => ({ id: q.id, text: q.textHe }))}
         defaultLanguage={project.defaultLanguage}
+        celebrantNames={project.celebrantNames ?? project.name}
+        messageTemplates={{
+          whatsappHe: project.whatsappTemplateHe,
+          whatsappRu: project.whatsappTemplateRu,
+          whatsappEn: project.whatsappTemplateEn,
+          emailSubjectHe: project.emailSubjectTemplateHe,
+          emailSubjectRu: project.emailSubjectTemplateRu,
+          emailSubjectEn: project.emailSubjectTemplateEn,
+          emailBodyHe: project.emailBodyTemplateHe,
+          emailBodyRu: project.emailBodyTemplateRu,
+          emailBodyEn: project.emailBodyTemplateEn,
+        }}
       />
     </main>
   );

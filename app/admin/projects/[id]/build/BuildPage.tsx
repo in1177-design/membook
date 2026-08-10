@@ -8,6 +8,7 @@ import AnswerQuestionStep from "../../../../i/[token]/steps/AnswerQuestionStep";
 import { PhotoStepForm, PhotoDropPanel } from "../../../../i/[token]/steps/PhotoStep";
 import { DoneStepForm } from "../../../../i/[token]/steps/DoneStep";
 import { BookTextPage, PhotoPage, MobileHero, BOOK_STYLES } from "../../../../i/[token]/SubmissionBook";
+import AdjustableCoverHero from "../../../../i/[token]/AdjustableCoverHero";
 import { WIZARD_EXTRA_STYLES } from "../../../../i/[token]/SubmissionWizard";
 import { CONTENT, introGuidanceFor, eventTypeLabelFor, PICK_ONE_FALLBACK_TEXT } from "../../../../i/[token]/content";
 import type { Lang, Question } from "../../../../i/[token]/types";
@@ -30,6 +31,7 @@ type ProjectData = {
   name: string;
   eventType: string | null;
   coverImageUrl: string | null;
+  coverImagePositionY: number;
   questionMode: "ALL" | "PICK_ONE";
   guestHeadlineHe: string | null;
   guestHeadlineRu: string | null;
@@ -93,6 +95,10 @@ export default function BuildPage({ project }: { project: ProjectData }) {
   const [activeStep, setActiveStep] = useState<ActiveStep>("intro");
   const [previewLang, setPreviewLang] = useState<Lang>("HE");
   const [device, setDevice] = useState<"desktop" | "mobile">("desktop");
+  // Lifted out of AdjustableCoverHero (intro tab) so the read-only hero on
+  // the preview/done tabs reflects a drag immediately, without waiting for
+  // updateCoverImagePosition's revalidatePath to reach a fresh page load.
+  const [coverPositionY, setCoverPositionY] = useState(project.coverImagePositionY);
   const [showRu, setShowRu] = useState(
     Boolean(project.guestHeadlineRu || project.introTextRu || project.blessingPromptTextRu || project.photoRequestTextRu)
   );
@@ -367,8 +373,20 @@ export default function BuildPage({ project }: { project: ProjectData }) {
             steps as the real guest wizard (SubmissionWizard.tsx): intro,
             preview, done. There's no real guest photo in this generic
             template preview, so it's always the project's cover photo. */}
-        {(activeStep === "intro" || activeStep === "preview" || activeStep === "done") && (
-          <MobileHero src={project.coverImageUrl} />
+        {/* Draggable only on intro — it's the same cover photo/position on
+            preview and done too (there's no real guest photo in this generic
+            preview), but a single editable place avoids three drag handles
+            fighting over the same value. */}
+        {activeStep === "intro" && (
+          <AdjustableCoverHero
+            projectId={project.id}
+            src={project.coverImageUrl}
+            initialPositionY={coverPositionY}
+            onPositionChange={setCoverPositionY}
+          />
+        )}
+        {(activeStep === "preview" || activeStep === "done") && (
+          <MobileHero src={project.coverImageUrl} positionY={coverPositionY} />
         )}
         <div className="sub-book" style={{ minHeight: 420 }}>
           {activeStep === "preview" ? (

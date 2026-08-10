@@ -45,13 +45,52 @@ type Invitee = {
 
 type QuestionRef = { id: string; text: string };
 
+// Project-level message templates (see EditProjectForm.tsx's "הודעות
+// לאורחים" section) — one WhatsApp text + one email subject/body per
+// language. Nothing per-guest is stored; the final text is generated here,
+// client-side, at copy time only.
+type MessageTemplates = {
+  whatsappHe: string | null;
+  whatsappRu: string | null;
+  whatsappEn: string | null;
+  emailSubjectHe: string | null;
+  emailSubjectRu: string | null;
+  emailSubjectEn: string | null;
+  emailBodyHe: string | null;
+  emailBodyRu: string | null;
+  emailBodyEn: string | null;
+};
+
 type Props = {
   projectId: string;
   baseUrl: string;
   invitees: Invitee[];
   questions: QuestionRef[];
   defaultLanguage: string;
+  celebrantNames: string;
+  messageTemplates: MessageTemplates;
 };
+
+// Picks the He/Ru/En template trio for a guest's effective language (their
+// own `language`, falling back to the project default — same resolution
+// LanguageCell/AttendingCell already use elsewhere in this file).
+function templatesForLanguage(templates: MessageTemplates, lang: string) {
+  if (lang === "RU") return { whatsapp: templates.whatsappRu, emailSubject: templates.emailSubjectRu, emailBody: templates.emailBodyRu };
+  if (lang === "EN") return { whatsapp: templates.whatsappEn, emailSubject: templates.emailSubjectEn, emailBody: templates.emailBodyEn };
+  return { whatsapp: templates.whatsappHe, emailSubject: templates.emailSubjectHe, emailBody: templates.emailBodyHe };
+}
+
+// Substitutes the three supported tokens (see the "הודעות לאורחים" caption
+// in EditProjectForm.tsx). Returns null (not an empty string) when the
+// template itself is unset, so callers can tell "no template" apart from
+// "template resolves to blank text" and disable the copy button accordingly.
+function applyTemplate(template: string | null, vars: { guestName: string; celebrantNames: string; personalLink: string }): string | null {
+  if (!template) return null;
+  return template
+    .replaceAll("{{guest_name}}", vars.guestName)
+    .replaceAll("{{celebrant_names}}", vars.celebrantNames)
+    .replaceAll("{{personal_link}}", vars.personalLink);
+}
 
 function hashStr(s: string): number {
   let h = 0;
@@ -98,7 +137,7 @@ function statusOf(invitee: Invitee): keyof typeof STATUS_STYLE {
   return "pending";
 }
 
-export default function InviteesTable({ projectId, baseUrl, invitees, questions, defaultLanguage }: Props) {
+export default function InviteesTable({ projectId, baseUrl, invitees, questions, defaultLanguage, celebrantNames, messageTemplates }: Props) {
   const [showAdd, setShowAdd] = useState(false);
   const [showImport, setShowImport] = useState(false);
   const [editingInvitee, setEditingInvitee] = useState<Invitee | null>(null);
@@ -230,6 +269,10 @@ export default function InviteesTable({ projectId, baseUrl, invitees, questions,
                       projectId={projectId}
                       onEdit={() => setEditingInvitee(invitee)}
                       onPreview={() => setPreviewingInvitee(invitee)}
+                      baseUrl={baseUrl}
+                      celebrantNames={celebrantNames}
+                      messageTemplates={messageTemplates}
+                      defaultLanguage={defaultLanguage}
                     />
                   </td>
                 </tr>
@@ -395,12 +438,34 @@ function RowActions({
   projectId,
   onEdit,
   onPreview,
+  baseUrl,
+  celebrantNames,
+  messageTemplates,
+  defaultLanguage,
 }: {
   invitee: Invitee;
   projectId: string;
   onEdit: () => void;
   onPreview: () => void;
+  baseUrl: string;
+  celebrantNames: string;
+  messageTemplates: MessageTemplates;
+  defaultLanguage: string;
 }) {
+  const link = invitee.inviteLink;
+  const personalLink = link && !link.revokedAt ? `${baseUrl}/i/${link.token}` : null;
+  const effectiveLang = invitee.language ?? defaultLanguage;
+  const templates = templatesForLanguage(messageTemplates, effectiveLang);
+  const guestName = invitee.name.trim() + (invitee.name2 ? ` / ${invitee.name2}` : "");
+
+  const vars = personalLink ? { guestName, celebrantNames, personalLink } : null;
+  const whatsappText = vars ? applyTemplate(templates.whatsapp, vars) : null;
+  const emailSubjectText = vars ? applyTemplate(templates.emailSubject, vars) : null;
+  const emailBodyText = vars ? applyTemplate(templates.emailBody, vars) : null;
+
+  const noLinkReason = "אין קישור אישי פעיל למוזמן/ת זה/ו";
+  const noTemplateReason = "לא הוגדרה תבנית לשפה הזו (הגדרות הפרויקט)";
+
   return (
     <div style={{ display: "flex", gap: 6 }}>
       <button type="button" onClick={onPreview} style={iconButtonStyle} title="עיון" aria-label="עיון">
@@ -409,7 +474,85 @@ function RowActions({
       <button type="button" onClick={onEdit} style={iconButtonStyle} title="עריכה" aria-label="עריכה">
         <PencilIcon />
       </button>
+      <CopyTemplateButton
+        icon={<WhatsAppIcon />}
+        label="העתקת הודעת וואטסאפ"
+        text={whatsappText}
+        disabledReason={personalLink ? noTemplateReason : noLinkReason}
+      />
+      <CopyTemplateButton
+        icon={<EnvelopeIcon />}
+        label="העתקת נושא המייל"
+        text={emailSubjectText}
+        disabledReason={personalLink ? noTemplateReason : noLinkReason}
+      />
+      <CopyTemplateButton
+        icon={<EnvelopeBodyIcon />}
+        label="העתקת גוף המייל"
+        text={emailBodyText}
+        disabledReason={personalLink ? noTemplateReason : noLinkReason}
+      />
       <MoreMenu invitee={invitee} projectId={projectId} />
+    </div>
+  );
+}
+
+// Icon button that, on hover, previews the exact final text (after
+// {{guest_name}}/{{celebrant_names}}/{{personal_link}} substitution) in a
+// small floating box — same visual language as MoreMenu/AddInviteeMenu's
+// dropdowns elsewhere in this file (white box, border, shadow, radius), just
+// triggered by hover instead of a click, and anchored above the button so it
+// can't be clipped by the next table row. On click, copies that same text
+// and swaps the preview for a brief "הועתק" confirmation.
+function CopyTemplateButton({
+  icon,
+  label,
+  text,
+  disabledReason,
+}: {
+  icon: React.ReactNode;
+  label: string;
+  text: string | null;
+  disabledReason: string;
+}) {
+  const [hovering, setHovering] = useState(false);
+  const [copied, setCopied] = useState(false);
+  const disabled = !text;
+
+  function handleClick() {
+    if (!text) return;
+    navigator.clipboard.writeText(text).then(() => {
+      setCopied(true);
+      setHovering(false);
+      setTimeout(() => setCopied(false), 1500);
+    });
+  }
+
+  return (
+    <div
+      style={{ position: "relative" }}
+      onMouseEnter={() => !disabled && setHovering(true)}
+      onMouseLeave={() => setHovering(false)}
+    >
+      <button
+        type="button"
+        onClick={handleClick}
+        disabled={disabled}
+        style={{ ...iconButtonStyle, opacity: disabled ? 0.35 : 1, cursor: disabled ? "default" : "pointer" }}
+        title={disabled ? disabledReason : undefined}
+        aria-label={label}
+      >
+        {icon}
+      </button>
+
+      {hovering && !copied && text && (
+        <div style={hoverPreviewStyle} role="tooltip">
+          <div style={{ fontSize: 11, fontWeight: 700, color: "#999", marginBottom: 4 }}>{label}</div>
+          <div>{text}</div>
+        </div>
+      )}
+
+      {copied && <div style={copiedBadgeStyle}>הועתק</div>}
     </div>
   );
 }
@@ -894,6 +1037,45 @@ const iconButtonStyle: React.CSSProperties = {
   justifyContent: "center",
 };
 
+// CopyTemplateButton's hover preview — same box styling as MoreMenu/
+// AddInviteeMenu's dropdowns (white/border/shadow/radius) so it reads as
+// the same "small floating panel" pattern already used in this file, just
+// anchored above the button (bottom: 100%) instead of below.
+const hoverPreviewStyle: React.CSSProperties = {
+  position: "absolute",
+  bottom: "calc(100% + 6px)",
+  insetInlineEnd: 0,
+  width: 280,
+  maxHeight: 260,
+  overflowY: "auto",
+  background: "white",
+  border: "1px solid #eee",
+  borderRadius: 10,
+  boxShadow: "0 4px 16px rgba(0,0,0,0.12)",
+  padding: 10,
+  fontSize: 13,
+  color: "#333",
+  lineHeight: 1.6,
+  whiteSpace: "pre-wrap",
+  textAlign: "start",
+  zIndex: 20,
+};
+
+const copiedBadgeStyle: React.CSSProperties = {
+  position: "absolute",
+  bottom: "calc(100% + 6px)",
+  insetInlineEnd: 0,
+  background: "#1f1f1f",
+  color: "white",
+  fontSize: 12,
+  fontWeight: 600,
+  padding: "6px 12px",
+  borderRadius: 999,
+  boxShadow: "0 4px 16px rgba(0,0,0,0.15)",
+  whiteSpace: "nowrap",
+  zIndex: 20,
+};
+
 function LinkIcon() {
   return (
     <svg width="15" height="15" viewBox="0 0 20 20" fill="none">
@@ -939,6 +1121,32 @@ function MoreIcon() {
       <circle cx="4.5" cy="10" r="1.3" fill="currentColor" />
       <circle cx="10" cy="10" r="1.3" fill="currentColor" />
       <circle cx="15.5" cy="10" r="1.3" fill="currentColor" />
+    </svg>
+  );
+}
+
+function WhatsAppIcon() {
+  return (
+    <svg width="15" height="15" viewBox="0 0 20 20" fill="none">
+      <path d="M4 17.5 5 14A7 7 0 1 1 8 16.5L4 17.5Z" stroke="currentColor" strokeWidth="1.3" strokeLinejoin="round" />
+    </svg>
+  );
+}
+
+function EnvelopeIcon() {
+  return (
+    <svg width="15" height="15" viewBox="0 0 20 20" fill="none">
+      <rect x="2.5" y="4.5" width="15" height="11" rx="1.5" stroke="currentColor" strokeWidth="1.3" />
+      <path d="M3 5.5 10 11l7-5.5" stroke="currentColor" strokeWidth="1.3" strokeLinecap="round" strokeLinejoin="round" />
+    </svg>
+  );
+}
+
+function EnvelopeBodyIcon() {
+  return (
+    <svg width="15" height="15" viewBox="0 0 20 20" fill="none">
+      <rect x="2.5" y="4.5" width="15" height="11" rx="1.5" stroke="currentColor" strokeWidth="1.3" />
+      <path d="M5.5 9h9M5.5 12h6" stroke="currentColor" strokeWidth="1.2" strokeLinecap="round" />
     </svg>
   );
 }

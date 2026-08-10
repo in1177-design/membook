@@ -30,6 +30,15 @@ type Project = {
   blessingPromptTextHe: string | null;
   blessingPromptTextRu: string | null;
   blessingPromptTextEn: string | null;
+  whatsappTemplateHe: string | null;
+  whatsappTemplateRu: string | null;
+  whatsappTemplateEn: string | null;
+  emailSubjectTemplateHe: string | null;
+  emailSubjectTemplateRu: string | null;
+  emailSubjectTemplateEn: string | null;
+  emailBodyTemplateHe: string | null;
+  emailBodyTemplateRu: string | null;
+  emailBodyTemplateEn: string | null;
   questions: {
     id: string;
     textHe: string;

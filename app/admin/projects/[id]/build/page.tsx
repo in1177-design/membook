@@ -20,6 +20,7 @@ export default async function ProjectBuildPage({ params }: { params: Promise<{ i
         name: project.name,
         eventType: project.eventType,
         coverImageUrl: project.coverImageUrl,
+        coverImagePositionY: project.coverImagePositionY,
         questionMode: project.questionMode,
         guestHeadlineHe: project.guestHeadlineHe,
         guestHeadlineRu: project.guestHeadlineRu,

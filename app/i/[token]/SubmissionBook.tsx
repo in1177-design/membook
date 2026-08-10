@@ -1,3 +1,4 @@
+import type { ReactNode } from "react";
 import { STEP_OF_LABEL } from "./content";
 import { questionText, type Lang, type LangContent, type Question } from "./types";
 
@@ -99,6 +100,22 @@ export const BOOK_STYLES = `
   .sub-mobile-hero { position: relative; margin: 0 -24px 20px; overflow: hidden; }
   .sub-mobile-hero img { display: block; width: 100%; height: 230px; object-fit: cover; }
   .sub-mobile-hero svg { position: absolute; bottom: -1px; left: 0; width: 100%; height: 40px; display: block; }
+
+  /* Admin-preview-only "התאם תמונה" control on the intro hero (see
+     AdjustableCoverHero.tsx) — never rendered for real guests. */
+  .sub-cover-fit-draglayer { position: absolute; inset: 0; z-index: 1; cursor: grab; touch-action: none; }
+  .sub-cover-fit-draglayer:active { cursor: grabbing; }
+  .sub-cover-fit-btn {
+    position: absolute; top: 12px; inset-inline-end: 12px; z-index: 2;
+    display: inline-flex; align-items: center; gap: 6px;
+    padding: 7px 12px; border-radius: 999px; border: none;
+    background: rgba(0,0,0,0.55); color: white; font-size: 12px; font-weight: 700; cursor: pointer;
+  }
+  .sub-cover-fit-btn[aria-pressed="true"] { background: #5838b8; }
+  .sub-cover-fit-status {
+    position: absolute; bottom: 46px; inset-inline-end: 12px; z-index: 2;
+    padding: 4px 10px; border-radius: 999px; background: rgba(0,0,0,0.55); color: white; font-size: 11px;
+  }
 
   /* Step 5 review card thumbnail + per-card edit link. */
   .sub-preview-photo-row { display: flex; align-items: center; gap: 12px; }
@@ -275,8 +292,10 @@ export function StepProgress({ current, total }: { current: number; total: numbe
 
 // The wave cut along a mobile hero photo's bottom edge — a single smooth
 // S-curve, filled to match the page background, stretched (preserveAspectRatio
-// "none") to whatever width the hero happens to render at.
-function HeroWave() {
+// "none") to whatever width the hero happens to render at. Exported so
+// AdjustableCoverHero (the admin preview's draggable cover-photo control)
+// can reuse the exact same shape instead of duplicating it.
+export function HeroWave() {
   return (
     <svg viewBox="0 0 200 40" preserveAspectRatio="none" aria-hidden="true">
       <path d="M0,22 C35,42 65,2 100,18 C135,34 165,4 200,20 L200,40 L0,40 Z" fill="#fdfcfb" />
@@ -286,13 +305,27 @@ function HeroWave() {
 
 // Full-bleed hero banner used ahead of the book on intro/preview/done
 // (mobile only — see .sub-mobile-hero in BOOK_STYLES). Renders nothing when
-// there's no image to show, rather than an empty banner.
-export function MobileHero({ src }: { src: string | null | undefined }) {
+// there's no image to show, rather than an empty banner. `positionY` (0-100,
+// object-position's Y%) defaults to centered — only ever non-50 for the
+// intro step's project cover photo, set via AdjustableCoverHero's "התאם
+// תמונה" control on the admin preview page. `overlay` lets that same admin
+// control render its drag layer/button on top of this exact markup instead
+// of duplicating it.
+export function MobileHero({
+  src,
+  positionY = 50,
+  overlay,
+}: {
+  src: string | null | undefined;
+  positionY?: number;
+  overlay?: ReactNode;
+}) {
   if (!src) return null;
   return (
     <div className="sub-mobile-hero">
-      <img src={src} alt="" />
+      <img src={src} alt="" style={{ objectPosition: `50% ${positionY}%` }} />
       <HeroWave />
+      {overlay}
     </div>
   );
 }

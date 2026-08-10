@@ -139,6 +139,15 @@ export async function updateProjectDetails(projectId: string, formData: FormData
   const blessingPromptTextHe = String(formData.get("blessingPromptTextHe") ?? "").trim() || null;
   const blessingPromptTextRu = String(formData.get("blessingPromptTextRu") ?? "").trim() || null;
   const blessingPromptTextEn = String(formData.get("blessingPromptTextEn") ?? "").trim() || null;
+  const whatsappTemplateHe = String(formData.get("whatsappTemplateHe") ?? "").trim() || null;
+  const whatsappTemplateRu = String(formData.get("whatsappTemplateRu") ?? "").trim() || null;
+  const whatsappTemplateEn = String(formData.get("whatsappTemplateEn") ?? "").trim() || null;
+  const emailSubjectTemplateHe = String(formData.get("emailSubjectTemplateHe") ?? "").trim() || null;
+  const emailSubjectTemplateRu = String(formData.get("emailSubjectTemplateRu") ?? "").trim() || null;
+  const emailSubjectTemplateEn = String(formData.get("emailSubjectTemplateEn") ?? "").trim() || null;
+  const emailBodyTemplateHe = String(formData.get("emailBodyTemplateHe") ?? "").trim() || null;
+  const emailBodyTemplateRu = String(formData.get("emailBodyTemplateRu") ?? "").trim() || null;
+  const emailBodyTemplateEn = String(formData.get("emailBodyTemplateEn") ?? "").trim() || null;
 
   const questionIds = formData.getAll("questionId").map((v) => String(v).trim());
   const questionTexts = formData.getAll("questionText").map((v) => String(v).trim());
@@ -173,6 +182,15 @@ export async function updateProjectDetails(projectId: string, formData: FormData
           blessingPromptTextHe,
           blessingPromptTextRu,
           blessingPromptTextEn,
+          whatsappTemplateHe,
+          whatsappTemplateRu,
+          whatsappTemplateEn,
+          emailSubjectTemplateHe,
+          emailSubjectTemplateRu,
+          emailSubjectTemplateEn,
+          emailBodyTemplateHe,
+          emailBodyTemplateRu,
+          emailBodyTemplateEn,
         },
       });
 
@@ -285,6 +303,19 @@ export async function updateProjectQuestions(
   });
   revalidatePath(`/admin/projects/${projectId}/build`);
   return { ids };
+}
+
+// Lightweight, single-purpose update for the admin preview page's "התאם
+// תמונה" cover-photo drag control — saves just the vertical crop position.
+// Same rationale as updateProjectQuestions above: deliberately separate from
+// updateProjectDetails (which expects and overwrites the entire project
+// form), so a drag gesture on the preview page can never risk clobbering the
+// rest of the project.
+export async function updateCoverImagePosition(projectId: string, positionY: number) {
+  const clamped = Math.max(0, Math.min(100, Math.round(positionY)));
+  await prisma.project.update({ where: { id: projectId }, data: { coverImagePositionY: clamped } });
+  revalidatePath(`/admin/projects/${projectId}/preview`);
+  revalidatePath(`/admin/projects/${projectId}/build`);
 }
 
 // Deletes a single question from the build page's Step 3 editor. Refuses to

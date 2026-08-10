@@ -9,7 +9,7 @@ import QuestionsBuilder from "./QuestionsBuilder";
 import QuestionModeSelect from "./QuestionModeSelect";
 import LanguageCheckboxes from "./LanguageCheckboxes";
 import { celebrantLabelFor } from "./eventTypeEmoji";
-import { labelStyle, sectionHeaderStyle, inputStyle, ltrInputStyle, rowStyle, buttonStyle, dividerStyle } from "./formStyles";
+import { colors, labelStyle, sectionHeaderStyle, inputStyle, ltrInputStyle, rowStyle, buttonStyle, dividerStyle } from "./formStyles";
 
 type Props = {
   project: {
@@ -33,6 +33,15 @@ type Props = {
     blessingPromptTextHe: string | null;
     blessingPromptTextRu: string | null;
     blessingPromptTextEn: string | null;
+    whatsappTemplateHe: string | null;
+    whatsappTemplateRu: string | null;
+    whatsappTemplateEn: string | null;
+    emailSubjectTemplateHe: string | null;
+    emailSubjectTemplateRu: string | null;
+    emailSubjectTemplateEn: string | null;
+    emailBodyTemplateHe: string | null;
+    emailBodyTemplateRu: string | null;
+    emailBodyTemplateEn: string | null;
     questions: {
       id: string;
       textHe: string;
@@ -65,6 +74,59 @@ function computeDeadline(eventDateStr: string): string {
 }
 
 const BLESSING_PROMPT_DEFAULT = "כמה מילים לברכה...";
+
+// Default starting text for the message template fields (see below) — real,
+// editable textarea/input content (via defaultValue), not a vanishing
+// placeholder hint, so it's actually there to keep/tweak/save. Only used as
+// a fallback while the project has no saved value yet; once saved, the real
+// value always wins over this. {{guest_name}}/{{celebrant_names}}/
+// {{personal_link}} are the three supported substitution tokens; a real
+// send feature (not built yet) would replace them per guest.
+const WHATSAPP_TEMPLATE_DEFAULT_HE = `היי {{guest_name}},
+
+אנחנו מכינים ל{{celebrant_names}} אלבום מיוחד לכבוד חתונת הזהב שלהם, ונשמח שתיקחו בו חלק.
+
+בקישור האישי שלכם תוכלו להוסיף ברכה, זיכרון ותמונה:
+{{personal_link}}`;
+
+const WHATSAPP_TEMPLATE_DEFAULT_RU = `Привет, {{guest_name}},
+
+Мы готовим для {{celebrant_names}} особый альбом в честь их золотой свадьбы, и будем рады, если вы примете в этом участие.
+
+По вашей личной ссылке вы сможете добавить пожелание, воспоминание и фото:
+{{personal_link}}`;
+
+const WHATSAPP_TEMPLATE_DEFAULT_EN = `Hi {{guest_name}},
+
+We're putting together a special album for {{celebrant_names}} to celebrate their golden wedding anniversary, and we'd love for you to be part of it.
+
+Using your personal link, you can add a blessing, a memory, and a photo:
+{{personal_link}}`;
+
+const EMAIL_SUBJECT_TEMPLATE_DEFAULT_HE = `הזמנה להשתתף באלבום לכבוד {{celebrant_names}}`;
+const EMAIL_SUBJECT_TEMPLATE_DEFAULT_RU = `Приглашение принять участие в альбоме для {{celebrant_names}}`;
+const EMAIL_SUBJECT_TEMPLATE_DEFAULT_EN = `Invitation to contribute to {{celebrant_names}}'s album`;
+
+const EMAIL_BODY_TEMPLATE_DEFAULT_HE = `היי {{guest_name}},
+
+אנחנו מכינים ל{{celebrant_names}} אלבום זיכרונות מיוחד, ונשמח שתיקחו בו חלק.
+
+בקישור האישי שלכם תוכלו להוסיף ברכה, זיכרון ותמונה:
+{{personal_link}}`;
+
+const EMAIL_BODY_TEMPLATE_DEFAULT_RU = `Привет, {{guest_name}},
+
+Мы готовим для {{celebrant_names}} особый альбом воспоминаний, и будем рады, если вы примете в этом участие.
+
+По вашей личной ссылке вы сможете добавить пожелание, воспоминание и фото:
+{{personal_link}}`;
+
+const EMAIL_BODY_TEMPLATE_DEFAULT_EN = `Hi {{guest_name}},
+
+We're putting together a special memory album for {{celebrant_names}}, and we'd love for you to be part of it.
+
+Using your personal link, you can add a blessing, a memory, and a photo:
+{{personal_link}}`;
 
 export default function EditProjectForm({ project, eventTypeOptions, questionTemplates, introTemplates, onSaved, readOnly }: Props) {
   const [error, setError] = useState<string | null>(null);
@@ -291,6 +353,132 @@ export default function EditProjectForm({ project, eventTypeOptions, questionTem
           </div>
         </>
       )}
+
+      <hr style={dividerStyle} />
+
+      <div style={{ display: "grid", gap: 16 }}>
+        <div style={{ display: "grid", gap: 4 }}>
+          <div style={{ display: "flex", justifyContent: "flex-start" }}>
+            <h3 style={sectionHeaderStyle}>הודעות לאורחים</h3>
+          </div>
+          <p style={{ fontSize: 12, color: colors.textSecondary, margin: 0 }}>
+            ניתן להשתמש בתגיות הבאות בתוך ההודעות — הן יוחלפו בפועל בזמן השליחה (טרם קיימת):{" "}
+            <code>{"{{guest_name}}"}</code> (שם המוזמן/ת), <code>{"{{celebrant_names}}"}</code> (שם/שמות
+            החוגגים), <code>{"{{personal_link}}"}</code> (הקישור האישי שלו/ה).
+          </p>
+        </div>
+
+        <div style={{ display: "grid", gap: 8 }}>
+          <div style={{ display: "flex", justifyContent: "flex-start" }}>
+            <span style={labelStyle}>הודעת וואטסאפ</span>
+          </div>
+          <div style={{ display: "grid", gridTemplateColumns: `repeat(${pickOneColumnCount}, 1fr)`, gap: 16 }}>
+            <label>
+              <span style={labelStyle}>עברית</span>
+              <textarea
+                name="whatsappTemplateHe"
+                defaultValue={project.whatsappTemplateHe ?? WHATSAPP_TEMPLATE_DEFAULT_HE}
+                rows={6}
+                disabled={readOnly}
+                style={{ ...inputStyle, resize: "vertical" }}
+              />
+            </label>
+            <label style={{ display: showRu ? "block" : "none" }}>
+              <span style={labelStyle}>רוסית</span>
+              <textarea
+                name="whatsappTemplateRu"
+                defaultValue={project.whatsappTemplateRu ?? WHATSAPP_TEMPLATE_DEFAULT_RU}
+                rows={6}
+                disabled={readOnly}
+                style={{ ...ltrInputStyle, resize: "vertical" }}
+              />
+            </label>
+            <label style={{ display: showEn ? "block" : "none" }}>
+              <span style={labelStyle}>אנגלית</span>
+              <textarea
+                name="whatsappTemplateEn"
+                defaultValue={project.whatsappTemplateEn ?? WHATSAPP_TEMPLATE_DEFAULT_EN}
+                rows={6}
+                disabled={readOnly}
+                style={{ ...ltrInputStyle, resize: "vertical" }}
+              />
+            </label>
+          </div>
+        </div>
+
+        <div style={{ display: "grid", gap: 8 }}>
+          <div style={{ display: "flex", justifyContent: "flex-start" }}>
+            <span style={labelStyle}>נושא המייל</span>
+          </div>
+          <div style={{ display: "grid", gridTemplateColumns: `repeat(${pickOneColumnCount}, 1fr)`, gap: 16 }}>
+            <label>
+              <span style={labelStyle}>עברית</span>
+              <input
+                name="emailSubjectTemplateHe"
+                defaultValue={project.emailSubjectTemplateHe ?? EMAIL_SUBJECT_TEMPLATE_DEFAULT_HE}
+                disabled={readOnly}
+                style={inputStyle}
+              />
+            </label>
+            <label style={{ display: showRu ? "block" : "none" }}>
+              <span style={labelStyle}>רוסית</span>
+              <input
+                name="emailSubjectTemplateRu"
+                defaultValue={project.emailSubjectTemplateRu ?? EMAIL_SUBJECT_TEMPLATE_DEFAULT_RU}
+                disabled={readOnly}
+                style={ltrInputStyle}
+              />
+            </label>
+            <label style={{ display: showEn ? "block" : "none" }}>
+              <span style={labelStyle}>אנגלית</span>
+              <input
+                name="emailSubjectTemplateEn"
+                defaultValue={project.emailSubjectTemplateEn ?? EMAIL_SUBJECT_TEMPLATE_DEFAULT_EN}
+                disabled={readOnly}
+                style={ltrInputStyle}
+              />
+            </label>
+          </div>
+        </div>
+
+        <div style={{ display: "grid", gap: 8 }}>
+          <div style={{ display: "flex", justifyContent: "flex-start" }}>
+            <span style={labelStyle}>גוף המייל</span>
+          </div>
+          <div style={{ display: "grid", gridTemplateColumns: `repeat(${pickOneColumnCount}, 1fr)`, gap: 16 }}>
+            <label>
+              <span style={labelStyle}>עברית</span>
+              <textarea
+                name="emailBodyTemplateHe"
+                defaultValue={project.emailBodyTemplateHe ?? EMAIL_BODY_TEMPLATE_DEFAULT_HE}
+                rows={6}
+                disabled={readOnly}
+                style={{ ...inputStyle, resize: "vertical" }}
+              />
+            </label>
+            <label style={{ display: showRu ? "block" : "none" }}>
+              <span style={labelStyle}>רוסית</span>
+              <textarea
+                name="emailBodyTemplateRu"
+                defaultValue={project.emailBodyTemplateRu ?? EMAIL_BODY_TEMPLATE_DEFAULT_RU}
+                rows={6}
+                disabled={readOnly}
+                style={{ ...ltrInputStyle, resize: "vertical" }}
+              />
+            </label>
+            <label style={{ display: showEn ? "block" : "none" }}>
+              <span style={labelStyle}>אנגלית</span>
+              <textarea
+                name="emailBodyTemplateEn"
+                defaultValue={project.emailBodyTemplateEn ?? EMAIL_BODY_TEMPLATE_DEFAULT_EN}
+                rows={6}
+                disabled={readOnly}
+                style={{ ...ltrInputStyle, resize: "vertical" }}
+              />
+            </label>
+          </div>
+        </div>
+      </div>
 
       {!readOnly && (
         <>

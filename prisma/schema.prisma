@@ -62,6 +62,11 @@ model Project {
   submissionDeadline DateTime?
   notes              String?
   coverImageUrl      String?
+  // Vertical crop position (0-100) for coverImageUrl wherever it renders as
+  // the mobile wave hero (object-position's Y%) — 50 is the old implicit
+  // centered behavior, so existing projects are unaffected until an admin
+  // adjusts it via the "התאם תמונה" control on the admin preview page.
+  coverImagePositionY Int          @default(50)
   status             ProjectStatus @default(ACTIVE)
   defaultLanguage    Language      @default(HE)
   questionMode       QuestionMode  @default(ALL)
@@ -90,6 +95,23 @@ model Project {
   blessingPromptTextHe String?
   blessingPromptTextRu String?
   blessingPromptTextEn String?
+
+  // Reusable message templates for contacting guests (composed once per
+  // project, not sent automatically yet — no dispatch feature exists). Guest
+  // list stays as Invitee rows; nothing per-guest is stored here. Support
+  // {{guest_name}}/{{personal_link}} placeholders, substituted at send time
+  // (not yet built). Per-language like introText*/blessingPromptText* above.
+  whatsappTemplateHe String?
+  whatsappTemplateRu String?
+  whatsappTemplateEn String?
+
+  emailSubjectTemplateHe String?
+  emailSubjectTemplateRu String?
+  emailSubjectTemplateEn String?
+
+  emailBodyTemplateHe String?
+  emailBodyTemplateRu String?
+  emailBodyTemplateEn String?
 
   organizationId String?
   organization   Organization? @relation(fields: [organizationId], references: [id])

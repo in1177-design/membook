@@ -2,6 +2,7 @@
 
 import { useEffect, useReducer } from "react";
 import { BOOK_STYLES, PhotoPage, MobileHero } from "./SubmissionBook";
+import AdjustableCoverHero from "./AdjustableCoverHero";
 import IntroStep from "./steps/IntroStep";
 import QuestionsStep from "./steps/QuestionsStep";
 import PhotoDateStep from "./steps/PhotoDateStep";
@@ -336,6 +337,7 @@ export default function SubmissionWizard({
   photoRequestTexts,
   blessingPromptTexts,
   coverImageUrl,
+  coverImagePositionY,
   initialLanguage,
   questions,
   questionMode,
@@ -345,6 +347,7 @@ export default function SubmissionWizard({
   existingBlessingText,
   existingBlessingSignedBy,
   previewMode = false,
+  projectId,
   lang: controlledLang,
 }: {
   token: string;
@@ -356,6 +359,9 @@ export default function SubmissionWizard({
   photoRequestTexts: Record<Lang, string>;
   blessingPromptTexts: Record<Lang, string>;
   coverImageUrl?: string | null;
+  // Vertical crop (0-100, object-position's Y%) for coverImageUrl's intro
+  // hero — undefined/null renders centered (50), same as before this existed.
+  coverImagePositionY?: number | null;
   initialLanguage: string;
   questions: Question[];
   questionMode: QuestionMode;
@@ -365,6 +371,10 @@ export default function SubmissionWizard({
   existingBlessingText?: string | null;
   existingBlessingSignedBy?: string | null;
   previewMode?: boolean;
+  // The real project id — only meaningful (and only ever passed) in
+  // previewMode, so the admin's "התאם תמונה" cover-photo control has
+  // somewhere to save to. Real guests never pass this.
+  projectId?: string;
   // Present only when a parent owns the language toggle externally (the
   // admin's preview page, via PreviewDeviceFrame) — real guests have no such
   // parent, so this stays undefined and initialLanguage alone decides.
@@ -767,7 +777,16 @@ export default function SubmissionWizard({
           {/* Intro is always the project's cover photo, never the guest's
               own upload (even if they already have one from a prior visit) —
               unlike preview/done below, which show whichever the guest has. */}
-          {state.step === "intro" && <MobileHero src={coverImageUrl} />}
+          {state.step === "intro" &&
+            (previewMode && projectId ? (
+              <AdjustableCoverHero
+                projectId={projectId}
+                src={coverImageUrl}
+                initialPositionY={coverImagePositionY ?? 50}
+              />
+            ) : (
+              <MobileHero src={coverImageUrl} positionY={coverImagePositionY ?? 50} />
+            ))}
           <div className="sub-book">
             {state.step === "intro" ? (
               <IntroStep
