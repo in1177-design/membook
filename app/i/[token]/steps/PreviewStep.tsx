@@ -15,6 +15,7 @@ export default function PreviewStep({
   onEdit,
   onConfirm,
   isSubmitting,
+  confirmDisabled,
   error,
   stepNumber,
   stepTotal,
@@ -32,6 +33,11 @@ export default function PreviewStep({
   onEdit?: (step: Extract<StepId, "blessing" | "answerQuestion" | "photo">) => void;
   onConfirm: () => void;
   isSubmitting: boolean;
+  // True when nothing has changed since the last successful send — nothing
+  // meaningful to resubmit, so the send button stays disabled until the
+  // guest edits something. Optional so callers with no real submission
+  // state (none today) aren't forced to pass it.
+  confirmDisabled?: boolean;
   error: string | null;
   stepNumber: number;
   stepTotal: number;
@@ -51,6 +57,7 @@ export default function PreviewStep({
       onEdit={onEdit}
       onConfirm={onConfirm}
       isSubmitting={isSubmitting}
+      confirmDisabled={confirmDisabled}
       error={error}
       stepNumber={stepNumber}
       stepTotal={stepTotal}

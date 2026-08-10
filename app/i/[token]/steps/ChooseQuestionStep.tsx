@@ -67,6 +67,7 @@ export default function ChooseQuestionStep({
                 key={q.id}
                 className={`sub-choose-option${isSelected ? " selected" : ""}`}
                 onClick={() => setSelected(q.id)}
+                aria-pressed={isSelected}
               >
                 <span className="sub-choose-option-text">{questionText(q, lang)}</span>
                 <span className={`sub-choose-radio${isSelected ? " checked" : ""}`}>{isSelected && <CheckIcon />}</span>
@@ -95,7 +96,7 @@ export default function ChooseQuestionStep({
 
 function CheckIcon() {
   return (
-    <svg width="12" height="12" viewBox="0 0 16 16" fill="none">
+    <svg width="12" height="12" viewBox="0 0 16 16" fill="none" aria-hidden="true">
       <path d="M3 8.5 6.2 12 13 4.5" stroke="white" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
     </svg>
   );

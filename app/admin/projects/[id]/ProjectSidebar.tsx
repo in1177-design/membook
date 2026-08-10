@@ -25,6 +25,7 @@ export default function ProjectSidebar({ allProjects }: Props) {
   const isPreviewRoute = /^\/admin\/projects\/[^/]+\/preview$/.test(pathname);
   const isSettingsRoute = /^\/admin\/projects\/[^/]+\/settings$/.test(pathname);
   const isBuildRoute = /^\/admin\/projects\/[^/]+\/build$/.test(pathname);
+  const isStyleGuideActive = pathname === "/admin/style-guide";
   const activeProject = allProjects.find((p) => p.id === urlProjectId) ?? allProjects[0];
   const isStoryActive = activeProject.id === urlProjectId && !isAlbumRoute && !isPreviewRoute && !isSettingsRoute && !isBuildRoute;
   const isAlbumActive = activeProject.id === urlProjectId && isAlbumRoute;
@@ -194,6 +195,14 @@ export default function ProjectSidebar({ allProjects }: Props) {
           <SidebarItem icon={<PeopleIcon />} label="משתתפים" count={totalParticipants} collapsed={collapsed} />
 
           <hr style={{ border: "none", borderTop: "1px solid #38393d", margin: 0 }} />
+
+          <SidebarItem
+            icon={<PaletteIcon />}
+            label="מדריך עיצוב"
+            collapsed={collapsed}
+            active={isStyleGuideActive}
+            onClick={isStyleGuideActive ? undefined : () => router.push("/admin/style-guide")}
+          />
 
           <div style={{ display: "flex", alignItems: "center", gap: 10, justifyContent: collapsed ? "center" : "flex-start" }}>
             <button
@@ -403,6 +412,22 @@ function EyeIcon() {
     <svg width="17" height="17" viewBox="0 0 20 20" fill="none" style={{ flexShrink: 0 }}>
       <path d="M1.5 10S4.5 4 10 4s8.5 6 8.5 6-3 6-8.5 6-8.5-6-8.5-6Z" stroke="#d4d2cd" strokeWidth="1.3" strokeLinejoin="round" />
       <circle cx="10" cy="10" r="2.3" stroke="#d4d2cd" strokeWidth="1.3" />
+    </svg>
+  );
+}
+
+function PaletteIcon() {
+  return (
+    <svg width="17" height="17" viewBox="0 0 20 20" fill="none" style={{ flexShrink: 0 }}>
+      <path
+        d="M10 2.8a7.2 7.2 0 1 0 0 14.4c.8 0 1.4-.6 1.4-1.4 0-.4-.2-.7-.4-1-.2-.3-.4-.6-.4-1 0-.8.6-1.4 1.4-1.4h1.6a3 3 0 0 0 3-3c0-3.9-3.4-6.6-6.6-6.6Z"
+        stroke="#d4d2cd"
+        strokeWidth="1.3"
+        strokeLinejoin="round"
+      />
+      <circle cx="6.2" cy="8.5" r="1" fill="#d4d2cd" />
+      <circle cx="8.8" cy="5.6" r="1" fill="#d4d2cd" />
+      <circle cx="12.2" cy="6.3" r="1" fill="#d4d2cd" />
     </svg>
   );
 }

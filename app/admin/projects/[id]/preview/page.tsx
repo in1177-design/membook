@@ -60,7 +60,7 @@ export default async function ProjectFormPreviewPage({ params }: { params: Promi
   return (
     <main>
       <h1 style={{ fontSize: 24, margin: "0 0 12px" }}>תצוגה מקדימה של הטופס</h1>
-      <PreviewDeviceFrame>
+      <PreviewDeviceFrame initialLanguage={project.defaultLanguage}>
         <SubmissionWizard
           token="preview"
           headlineTexts={headlineTexts}

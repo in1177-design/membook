@@ -1,6 +1,6 @@
 "use client";
 
-import { useReducer } from "react";
+import { useEffect, useReducer } from "react";
 import { BOOK_STYLES, PhotoPage, MobileHero } from "./SubmissionBook";
 import IntroStep from "./steps/IntroStep";
 import QuestionsStep from "./steps/QuestionsStep";
@@ -31,6 +31,15 @@ type WizardState = {
   saveError: string | null;
   submitStatus: SubmitStatus;
   submitError: string | null;
+  // What was actually saved as of the last successful final submit (seeded
+  // from the invitee's existing submission on first mount) — compared
+  // against the live fields above to decide whether there's anything new to
+  // send (see hasChanges below).
+  baselineAnswers: Record<string, string>;
+  baselineBlessingText: string;
+  baselineBlessingSignedBy: string;
+  baselineDateLocation: string;
+  baselinePhotoUrl: string | null;
 };
 
 function wizardReducer(state: WizardState, action: WizardAction): WizardState {
@@ -61,6 +70,15 @@ function wizardReducer(state: WizardState, action: WizardAction): WizardState {
       return { ...state, submitStatus: "pending", submitError: null };
     case "SUBMIT_ERROR":
       return { ...state, submitStatus: "error", submitError: action.error };
+    case "SYNC_BASELINE":
+      return {
+        ...state,
+        baselineAnswers: state.answers,
+        baselineBlessingText: state.blessingText,
+        baselineBlessingSignedBy: state.blessingSignedBy,
+        baselineDateLocation: state.dateLocation,
+        baselinePhotoUrl: state.photoPreviewUrl,
+      };
     default:
       return state;
   }
@@ -85,31 +103,15 @@ const STEP_DISPLAY_PICK_ONE: Partial<Record<StepId, number>> = {
   answerQuestion: 3,
   photo: 4,
   preview: 5,
-  done: 6,
+  // "done" is virtual — never counted as its own numbered step (see
+  // STEP_DISPLAY_TOTAL_PICK_ONE below); this entry only keeps the map
+  // internally consistent for readers, it isn't read at runtime (the done
+  // screen uses doneStepNumber instead, derived straight from the total).
+  done: 5,
 };
-const STEP_DISPLAY_TOTAL_PICK_ONE = 6;
+const STEP_DISPLAY_TOTAL_PICK_ONE = 5;
 
 export const WIZARD_EXTRA_STYLES = `
-  /* .sub-lang-switch-wrap carries its own container-type (sits outside
-     .sub-book-outer, same reason .sub-mobile-hero needs to live inside it
-     instead — see BOOK_STYLES) — a container can't be queried for its OWN
-     properties (self-referential, disallowed), so the query below targets
-     .sub-lang-switch, a plain descendant of the wrapper, not the wrapper
-     itself. Mobile default: bled white, flush to the top/sides of the page
-     — this is the only piece left sitting directly on the page's own cream
-     background (.invitee-bg in page.tsx) now that the progress bar moved
-     inside the book; desktop reverts to its original plain, unbled look
-     below (the cream margin around the centered white book card there is
-     the existing, intentional desktop look — not part of this redesign). */
-  .sub-lang-switch-wrap { container-type: inline-size; }
-  .sub-lang-switch { display: flex; align-items: center; gap: 8px; background: #fff; margin: -40px -24px 12px; padding: 14px 24px 0; }
-  @container (min-width: 860px) {
-    .sub-lang-switch { background: none; margin: 0 0 12px; padding: 0; }
-  }
-  .sub-lang-switch-label { font-size: 11px; color: #9a9a9a; }
-  .sub-lang-btn { font-size: 12px; font-weight: 700; padding: 5px 12px; border-radius: 999px; border: 1px solid #d8d6d1; background: white; color: #767676; cursor: pointer; }
-  .sub-lang-btn.active { background: #5838b8; border-color: #5838b8; color: white; }
-
   /* Segmented step-progress bar (StepProgress, in SubmissionBook.tsx) —
      rendered inside every step's own .sub-page-form-top, right under its
      eyebrow (which already carries the "Step N of Total · Label" text) and
@@ -120,15 +122,15 @@ export const WIZARD_EXTRA_STYLES = `
   .sub-progress-pill { flex: 1; height: 4px; border-radius: 999px; background: #e6e4e0; }
   .sub-progress-pill.filled { background: #5838b8; }
 
-  .sub-opening-text { font-size: 16px; color: #55524c; line-height: 1.6; margin: 0; }
+  .sub-opening-text { font-size: 16px; color: #55524c; line-height: 1.6; margin: 0; text-align: center; }
 
   .sub-intro-guidance { margin-top: 18px; }
-  .sub-intro-guidance-heading { font-size: 16px; font-weight: 700; color: #5838b8; margin: 16px 0 8px; }
+  .sub-intro-guidance-heading { font-size: 16px; font-weight: 700; color: #5838b8; margin: 16px 0 8px; text-align: center; }
   /* Desktop-only plain list (see @container below); mobile shows the card
      version instead (.sub-intro-step-list, further down). */
   .sub-intro-guidance-steps { display: none; }
   .sub-intro-guidance-steps li { font-size: 16px; color: #55524c; line-height: 1.6; }
-  .sub-intro-guidance-closing { font-size: 16px; color: #55524c; line-height: 1.6; margin: 0; }
+  .sub-intro-guidance-closing { font-size: 16px; color: #55524c; line-height: 1.6; margin: 0; text-align: center; }
 
   .sub-intro-step-list { display: grid; gap: 8px; margin: 4px 0; }
   .sub-intro-step-card { display: flex; align-items: center; justify-content: space-between; gap: 12px; border: 1px solid #e6e4e0; border-radius: 12px; padding: 14px 16px; }
@@ -136,8 +138,8 @@ export const WIZARD_EXTRA_STYLES = `
   .sub-intro-step-text strong { color: #2b2b2b; }
   .sub-intro-step-badge { flex-shrink: 0; width: 30px; height: 30px; border-radius: 50%; border: 1.5px solid #5838b8; color: #5838b8; font-size: 14px; font-weight: 700; display: flex; align-items: center; justify-content: center; }
 
-  .sub-eyebrow { font-size: 13px; font-weight: 700; letter-spacing: 1.6px; text-transform: uppercase; color: #5838b8; margin: 0 0 8px; }
-  .sub-heading { font-size: 26px; font-weight: 700; color: #1a1a1a; margin: 0 0 8px; }
+  .sub-eyebrow { font-size: 13px; font-weight: 700; letter-spacing: 1.6px; text-transform: uppercase; color: #5838b8; margin: 0 0 8px; text-align: center; }
+  .sub-heading { font-size: 26px; font-weight: 700; color: #1a1a1a; margin: 0 0 8px; text-align: center; }
 
   .sub-date-input { width: 100%; padding: 12px 14px; font-size: 14px; border: 1px solid #e6e4e0; border-radius: 10px; background: #f7f6f4; box-sizing: border-box; }
   .sub-date-input::placeholder { color: #adabA6; }
@@ -229,17 +231,47 @@ export const WIZARD_EXTRA_STYLES = `
   /* Step 4 (photo) — subtext under the heading, an inline hint box with a
      heart icon, an "or" divider, an outlined camera button, format/size
      hints, and the empty drop-zone's backdrop photo + "add" circle. */
-  .sub-photo-subtext { font-size: 16px; color: #55524c; line-height: 1.6; margin: 0 0 16px; }
+  .sub-photo-subtext { font-size: 16px; color: #55524c; line-height: 1.6; margin: 0 0 16px; text-align: center; }
   .sub-photo-subtext-editable { width: 100%; resize: vertical; border: 1px solid #f0c419; background: #fdf6d8; border-radius: 8px; padding: 8px 10px; box-sizing: border-box; font-family: inherit; }
   .sub-photo-subtext-editable:focus { outline: 2px solid #f0c419; }
-  .sub-photo-hint-box { display: flex; align-items: flex-start; justify-content: space-between; gap: 12px; padding: 14px 16px; border-radius: 12px; background: #f1effb; margin-bottom: 18px; }
+  /* Desktop-only (see @container below) — mobile shows the inline drop-zone
+     and footer hint card instead. */
+  .sub-photo-hint-box { display: none; align-items: flex-start; justify-content: space-between; gap: 12px; padding: 14px 16px; border-radius: 12px; background: #f1effb; margin-bottom: 18px; }
   .sub-photo-hint-line1 { font-size: 16px; font-weight: 700; color: #3a3a3a; margin: 0 0 4px; }
   .sub-photo-hint-line2 { font-size: 16px; color: #767676; margin: 0; line-height: 1.5; }
   .sub-photo-or-row { display: flex; align-items: center; gap: 12px; margin: 4px 0 18px; }
   .sub-photo-or-row hr { flex: 1; border: none; border-top: 1px solid #e6e4e0; margin: 0; }
   .sub-photo-or-row span { font-size: 12px; color: #9a9a9a; }
   .sub-photo-camera-btn { display: flex; align-items: center; justify-content: center; gap: 8px; width: 100%; padding: 13px 16px; font-size: 14px; font-weight: 700; color: #5838b8; background: white; border: 1.5px solid #5838b8; border-radius: 10px; cursor: pointer; margin-bottom: 14px; }
-  .sub-photo-format-hint { font-size: 16px; color: #9a9a9a; text-align: center; margin: 2px 0; }
+  /* Desktop-only (see @container below) — folded into the mobile drop-zone
+     below instead. */
+  .sub-photo-format-hint { display: none; font-size: 16px; color: #9a9a9a; text-align: center; margin: 2px 0; }
+
+  /* Mobile-only inline drop-zone (real file picker, no camera capture) —
+     the actual "choose from device" affordance on mobile, since
+     PhotoDropPanel's own panel stays hidden there. Hidden on desktop below. */
+  .sub-photo-inline-drop {
+    display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 6px;
+    text-align: center; min-height: 190px; padding: 24px 20px; margin-bottom: 18px; cursor: pointer;
+    border-radius: 14px; border: 1.5px dashed #d8d6d1; background: #f5f3ff; color: #5b4fc4; box-sizing: border-box;
+  }
+  .sub-photo-inline-drop-title { font-size: 15px; font-weight: 700; color: #5838b8; margin-top: 4px; }
+  .sub-photo-inline-drop-subtitle { font-size: 13px; color: #8a8883; }
+  .sub-photo-inline-drop-divider { width: 100%; max-width: 220px; border: none; border-top: 1px solid #e2ddf5; margin: 10px 0 6px; }
+  .sub-photo-inline-drop-hint { font-size: 12px; color: #9a9a9a; }
+  /* Selected-photo state: a square preview (width-driven via aspect-ratio,
+     not the empty prompt's min-height) with a "change photo" badge pinned
+     to its bottom-left corner. */
+  .sub-photo-inline-drop.has-photo { position: relative; padding: 0; aspect-ratio: 1 / 1; min-height: 0; border-style: solid; border-color: #e6e4e0; background: #eee; overflow: hidden; }
+  .sub-photo-inline-drop-img { display: block; width: 100%; height: 100%; object-fit: cover; position: absolute; inset: 0; }
+  .sub-photo-inline-drop-change { position: absolute; left: 10px; bottom: 10px; z-index: 1; font-size: 12px; font-weight: 600; color: white; background: rgba(0,0,0,0.55); padding: 6px 14px; border-radius: 999px; }
+
+  /* Mobile-only hint card rendered inside the fixed bottom block (via
+     StepBottomNav's beforeButtons) — the desktop equivalent is the original
+     heart-icon .sub-photo-hint-box above, never shown together. */
+  .sub-photo-hint-card { display: flex; flex-direction: column; gap: 4px; padding: 14px 16px; border-radius: 12px; border: 1px solid #ece9e4; background: #fbfaf8; margin-bottom: 12px; }
+  .sub-photo-hint-card .sub-photo-hint-line1 { margin: 0; }
+  .sub-photo-hint-card .sub-photo-hint-line2 { margin: 0; }
 
   .sub-photo-drop-backdrop { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; opacity: 0.4; }
   .sub-photo-add-circle { position: relative; z-index: 1; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 8px; width: 150px; height: 150px; border-radius: 50%; background: rgba(255,255,255,0.92); box-shadow: 0 6px 24px rgba(0,0,0,0.1); }
@@ -261,7 +293,6 @@ export const WIZARD_EXTRA_STYLES = `
      progress pills have no desktop-specific look (same at every width, see
      above) so there's nothing to revert for them here. */
   @container (min-width: 860px) {
-    .sub-lang-btn.active { background: #2f3f8f; border-color: #2f3f8f; }
     .sub-intro-guidance-heading { color: #2f3f8f; }
     .sub-intro-guidance-steps { display: grid; margin: 0; padding-inline-start: 20px; gap: 6px; }
     .sub-intro-step-list { display: none; }
@@ -282,6 +313,16 @@ export const WIZARD_EXTRA_STYLES = `
     }
     .sub-step-back svg { display: block; }
     .sub-photo-camera-btn { color: #3b57d6; border-color: #3b57d6; }
+    /* Narrative text back to its original start-alignment (right in RTL,
+       left in LTR) at desktop — mobile default above centers all of these. */
+    .sub-eyebrow, .sub-heading, .sub-opening-text, .sub-photo-subtext,
+    .sub-intro-guidance-heading, .sub-intro-guidance-closing { text-align: start; }
+    /* Step 4: back to the original heart-icon hint box + format hints,
+       mobile's inline drop-zone and footer hint card are mobile-only. */
+    .sub-photo-hint-box { display: flex; }
+    .sub-photo-format-hint { display: block; }
+    .sub-photo-inline-drop { display: none; }
+    .sub-photo-hint-card { display: none; }
   }
 `;
 
@@ -304,6 +345,7 @@ export default function SubmissionWizard({
   existingBlessingText,
   existingBlessingSignedBy,
   previewMode = false,
+  lang: controlledLang,
 }: {
   token: string;
   headlineTexts: Record<Lang, string>;
@@ -323,6 +365,10 @@ export default function SubmissionWizard({
   existingBlessingText?: string | null;
   existingBlessingSignedBy?: string | null;
   previewMode?: boolean;
+  // Present only when a parent owns the language toggle externally (the
+  // admin's preview page, via PreviewDeviceFrame) — real guests have no such
+  // parent, so this stays undefined and initialLanguage alone decides.
+  lang?: Lang;
 }) {
   const initialLang: Lang = initialLanguage === "RU" || initialLanguage === "EN" ? initialLanguage : "HE";
   const hasAnyProgress =
@@ -335,7 +381,10 @@ export default function SubmissionWizard({
   const hasPhotoProgress = Boolean(existingPhotoUrl);
 
   function initialStepPickOne(): StepId {
-    if (isCompleted) return "done";
+    // A guest who already completed their submission and reopens the link
+    // lands on the summary (not the one-time "done" screen) so they can
+    // review and, if they want, edit before re-sending.
+    if (isCompleted) return "preview";
     if (!hasBlessingProgress && !chosenQuestionId && !hasPhotoProgress) return "intro";
     if (!hasBlessingProgress) return "blessing";
     if (!chosenQuestionId) return "chooseQuestion";
@@ -347,16 +396,17 @@ export default function SubmissionWizard({
     questionMode === "PICK_ONE"
       ? initialStepPickOne()
       : isCompleted
-        ? "done"
+        ? "preview"
         : hasAnyProgress
           ? "questions"
           : "intro";
   const initialActiveQuestionId = questionMode === "PICK_ONE" ? chosenQuestionId : questions[0]?.id ?? null;
 
+  const initialAnswers = Object.fromEntries(questions.map((q) => [q.id, q.existingAnswer]));
   const [state, dispatch] = useReducer(wizardReducer, {
     step: initialStep,
     lang: initialLang,
-    answers: Object.fromEntries(questions.map((q) => [q.id, q.existingAnswer])),
+    answers: initialAnswers,
     blessingText: existingBlessingText ?? "",
     blessingSignedBy: existingBlessingSignedBy ?? "",
     dateLocation: existingDateLocation ?? "",
@@ -367,7 +417,21 @@ export default function SubmissionWizard({
     saveError: null,
     submitStatus: "idle",
     submitError: null,
+    baselineAnswers: initialAnswers,
+    baselineBlessingText: existingBlessingText ?? "",
+    baselineBlessingSignedBy: existingBlessingSignedBy ?? "",
+    baselineDateLocation: existingDateLocation ?? "",
+    baselinePhotoUrl: existingPhotoUrl ?? null,
   });
+
+  // Syncs an externally-owned language toggle (the admin preview's device
+  // frame) into this wizard's own state — real guests never pass a
+  // controlledLang, so this is a no-op for them.
+  useEffect(() => {
+    if (controlledLang !== undefined && controlledLang !== state.lang) {
+      dispatch({ type: "SET_LANG", lang: controlledLang });
+    }
+  }, [controlledLang, state.lang]);
 
   const c = content[state.lang];
   const chosenQuestion = questions.find((q) => q.id === state.activeQuestionId) ?? null;
@@ -561,6 +625,7 @@ export default function SubmissionWizard({
           : {}),
         mediaAsset: null,
       });
+      dispatch({ type: "SYNC_BASELINE" });
       dispatch({ type: "GO_TO_STEP", step: "done" });
     } catch (e) {
       dispatch({ type: "SUBMIT_ERROR", error: e instanceof Error ? e.message : "משהו השתבש, נסי שוב" });
@@ -578,9 +643,24 @@ export default function SubmissionWizard({
   const displayStepTotal = questionMode === "PICK_ONE" ? STEP_DISPLAY_TOTAL_PICK_ONE : stepOrder.length;
   // "done" isn't part of stepOrder (it comes after everything in it), so it
   // isn't covered by stepIndex/displayStepNumber above — PICK_ONE's map
-  // already has an explicit "done" entry (6) that agrees with
+  // already has an explicit "done" entry (5) that agrees with
   // displayStepTotal; ALL mode has no such map, so it's one past its total.
   const doneStepNumber = questionMode === "PICK_ONE" ? STEP_DISPLAY_TOTAL_PICK_ONE : stepOrder.length + 1;
+  // Whether there's anything new to send since the last successful final
+  // submit — drives the summary page's send button (see PreviewStep below).
+  // Compared against baseline* (seeded from the invitee's saved submission,
+  // refreshed via SYNC_BASELINE after each successful send), not the props
+  // directly, so a resubmit-then-return-without-editing correctly re-disables
+  // it. All text compared trimmed so whitespace-only edits don't count.
+  const hasChanges =
+    Object.keys(state.answers).some(
+      (id) => (state.answers[id] ?? "").trim() !== (state.baselineAnswers[id] ?? "").trim()
+    ) ||
+    state.blessingText.trim() !== state.baselineBlessingText.trim() ||
+    state.blessingSignedBy.trim() !== state.baselineBlessingSignedBy.trim() ||
+    state.dateLocation.trim() !== state.baselineDateLocation.trim() ||
+    state.photo !== null ||
+    state.photoPreviewUrl !== state.baselinePhotoUrl;
 
   return (
     <>
@@ -591,7 +671,7 @@ export default function SubmissionWizard({
           style={{
             background: "#fff4d6",
             border: "1px solid #e8d38a",
-            color: "#6b5410",
+            color: "#e07b1a",
             borderRadius: 10,
             padding: "10px 14px",
             fontSize: 13,
@@ -606,26 +686,11 @@ export default function SubmissionWizard({
 
       {/* Real guests get whatever language is registered for them
           (invitee.language, resolved into initialLanguage before this
-          component even mounts) — no manual switcher. It only renders in
-          previewMode so the admin can still check each language's content
-          from the build/preview pages. */}
-      {previewMode && state.step !== "done" && (
-        <div className="sub-lang-switch-wrap">
-          <div className="sub-lang-switch">
-            <span className="sub-lang-switch-label">שפה:</span>
-            {(["HE", "RU", "EN"] as Lang[]).map((l) => (
-              <button
-                key={l}
-                type="button"
-                className={`sub-lang-btn${state.lang === l ? " active" : ""}`}
-                onClick={() => dispatch({ type: "SET_LANG", lang: l })}
-              >
-                {l}
-              </button>
-            ))}
-          </div>
-        </div>
-      )}
+          component even mounts) — no manual switcher. In previewMode the
+          language toggle lives in PreviewDeviceFrame's own toolbar (next to
+          the desktop/mobile toggle) and drives this wizard via the
+          controlledLang sync effect above, so there's nothing to render
+          here anymore. */}
 
       {state.step === "done" ? (
         <DoneStep
@@ -657,6 +722,7 @@ export default function SubmissionWizard({
           onEdit={(step) => dispatch({ type: "GO_TO_STEP", step })}
           onConfirm={handleConfirmFinal}
           isSubmitting={state.submitStatus === "pending"}
+          confirmDisabled={!hasChanges}
           error={state.submitError}
           stepNumber={displayStepNumber}
           stepTotal={displayStepTotal}
@@ -795,10 +861,6 @@ export default function SubmissionWizard({
                 photoPreviewUrl={state.photoPreviewUrl}
                 coverImageUrl={coverImageUrl}
                 onPhotoChange={handlePhotoChange}
-                // Blessing and the question step are already long on mobile
-                // on their own — skip the photo invitation there entirely
-                // rather than add yet another block to scroll past.
-                className="sub-page-photo-hide-mobile"
               />
             ) : (
               <PhotoPage
@@ -807,7 +869,6 @@ export default function SubmissionWizard({
                     ? coverImageUrl ?? null
                     : state.photoPreviewUrl ?? (questionMode === "PICK_ONE" ? coverImageUrl ?? null : null)
                 }
-                className="sub-page-photo-hide-mobile"
               />
             )}
           </div>

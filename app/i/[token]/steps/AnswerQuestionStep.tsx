@@ -35,13 +35,16 @@ export default function AnswerQuestionStep({
           {STEP_OF_LABEL[lang](stepNumber, stepTotal)} · {QUESTION_SHORT_LABEL[lang]}
         </p>
         <StepProgress current={stepNumber} total={stepTotal} />
-        <h1 className="sub-heading">{questionText(question, lang)}</h1>
+        <h1 className="sub-heading" id="sub-answer-heading">
+          {questionText(question, lang)}
+        </h1>
         {questionHelper(question, lang) && <p className="sub-q-helper">{questionHelper(question, lang)}</p>}
       </div>
 
       <div className="sub-page-form-scroll">
         <textarea
           className="sub-q-textarea"
+          aria-labelledby="sub-answer-heading"
           value={answer}
           onChange={(e) => onAnswerChange(e.target.value)}
           rows={8}

@@ -119,15 +119,21 @@ export default async function InviteePage({ params }: { params: Promise<{ token:
     <>
       <style>{`
         .invitee-bg { background: #f3ece0; min-height: 100vh; }
+        .sub-page-main { padding: 40px 24px; box-sizing: border-box; }
         /* Mobile: the whole page turns white (matches the book's own
            full-bleed white look there) — only desktop keeps the cream
            page background showing around the book. */
         @media (max-width: 859px) {
           .invitee-bg { background: #fff; }
+          /* Steps with a full-bleed hero (.sub-mobile-hero — intro/preview/
+             done) lose the top/bottom page padding entirely so the hero
+             photo touches the very top edge of the screen instead of
+             floating 40px below it; steps without one keep the normal gap. */
+          .sub-page-main:has(.sub-mobile-hero) { padding: 0 24px; }
         }
       `}</style>
       <div className="invitee-bg">
-        <main style={{ maxWidth: 1048, margin: "0 auto", padding: "40px 24px" }}>
+        <main className="sub-page-main" style={{ maxWidth: 1048, margin: "0 auto" }}>
           <SubmissionWizard
             token={token}
             headlineTexts={headlineTexts}

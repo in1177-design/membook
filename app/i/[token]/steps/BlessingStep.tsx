@@ -55,21 +55,22 @@ export default function BlessingStep({
         {/* The admin's guidance text stays visible as a heading, not a
             placeholder — a placeholder disappears the moment the guest
             starts typing, right when they'd still want the prompt in view. */}
-        <h1 className="sub-heading">{blessingPromptText}</h1>
+        <h1 className="sub-heading" id="sub-blessing-heading">
+          {blessingPromptText}
+        </h1>
       </div>
 
       <div className="sub-page-form-scroll">
         <div style={{ display: "grid", gap: 14 }}>
-          <label>
-            <textarea
-              className="sub-q-textarea"
-              value={blessingText}
-              onChange={(e) => onBlessingTextChange(e.target.value)}
-              placeholder={BLESSING_PLACEHOLDER[lang]}
-              rows={6}
-              autoFocus
-            />
-          </label>
+          <textarea
+            className="sub-q-textarea"
+            aria-labelledby="sub-blessing-heading"
+            value={blessingText}
+            onChange={(e) => onBlessingTextChange(e.target.value)}
+            placeholder={BLESSING_PLACEHOLDER[lang]}
+            rows={6}
+            autoFocus
+          />
           <label>
             <span className="sub-field-label">{SIGNED_BY_LABEL[lang]}</span>
             <input

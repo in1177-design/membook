@@ -45,11 +45,12 @@ export default function QuestionsStep({
                   type="button"
                   className="sub-q-head"
                   onClick={() => dispatch({ type: "SET_ACTIVE_QUESTION", id: isActive ? null : q.id })}
+                  aria-expanded={isActive}
                 >
-                  <span className="sub-q-avatar">{i + 1}</span>
-                  <span className="sub-q-title">{questionText(q, lang)}</span>
+                  <span className="sub-q-avatar" aria-hidden="true">{i + 1}</span>
+                  <span className="sub-q-title" id={`sub-q-title-${q.id}`}>{questionText(q, lang)}</span>
                   {hasAnswer && !isActive && <span className="sub-q-answered-dot" />}
-                  <svg className="sub-q-chevron" width="16" height="16" viewBox="0 0 16 16" fill="none">
+                  <svg className="sub-q-chevron" width="16" height="16" viewBox="0 0 16 16" fill="none" aria-hidden="true">
                     <path d="M4 6l4 4 4-4" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" />
                   </svg>
                 </button>
@@ -58,6 +59,7 @@ export default function QuestionsStep({
                     {questionHelper(q, lang) && <p className="sub-q-helper">{questionHelper(q, lang)}</p>}
                     <textarea
                       className="sub-q-textarea"
+                      aria-labelledby={`sub-q-title-${q.id}`}
                       value={answers[q.id] ?? ""}
                       onChange={(e) => dispatch({ type: "SET_ANSWER", questionId: q.id, text: e.target.value })}
                       onBlur={() => onBlurAnswer(q.id)}

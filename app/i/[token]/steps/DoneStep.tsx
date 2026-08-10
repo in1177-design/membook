@@ -22,7 +22,7 @@ const BACK_LABEL: Record<Lang, string> = {
 
 function CheckCircleIcon() {
   return (
-    <svg width="34" height="34" viewBox="0 0 34 34" fill="none">
+    <svg width="34" height="34" viewBox="0 0 34 34" fill="none" aria-hidden="true">
       <circle cx="17" cy="17" r="16" stroke="currentColor" strokeWidth="1.6" />
       <path d="M10.5 17.5l4 4 9-9.5" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" />
     </svg>
@@ -92,7 +92,7 @@ export default function DoneStep(props: Parameters<typeof DoneStepForm>[0] & { p
       <div className="sub-book">
         <DoneStepForm {...formProps} />
         <div className="sub-spine" />
-        <PhotoPage photoUrl={photoUrl} className="sub-page-photo-hide-mobile" />
+        <PhotoPage photoUrl={photoUrl} />
       </div>
     </div>
   );

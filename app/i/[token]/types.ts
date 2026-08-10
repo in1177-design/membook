@@ -7,7 +7,6 @@ export type LangContent = {
   intro: string;
   photoLabel: string;
   photoHint: string;
-  submitLabel: string;
   dateLocationLabel: string;
   dateLocationPlaceholder: string;
   backToEditLabel: string;
@@ -64,4 +63,9 @@ export type WizardAction =
   | { type: "SAVE_SUCCESS" }
   | { type: "SAVE_ERROR"; error: string }
   | { type: "SUBMIT_START" }
-  | { type: "SUBMIT_ERROR"; error: string };
+  | { type: "SUBMIT_ERROR"; error: string }
+  // Snapshots the current answers/blessing/date/photo as the new "baseline"
+  // to compare future edits against — dispatched right after a successful
+  // final submit, so a guest who returns to the summary without editing
+  // anything further sees the send button correctly disabled again.
+  | { type: "SYNC_BASELINE" };

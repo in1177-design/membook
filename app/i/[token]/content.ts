@@ -15,7 +15,6 @@ export const CONTENT: Record<
     intro: string;
     photoLabel: string;
     photoHint: string;
-    submitLabel: string;
     dateLocationLabel: string;
     dateLocationPlaceholder: string;
     backToEditLabel: string;
@@ -30,7 +29,6 @@ export const CONTENT: Record<
     intro: "שמחים שהצטרפת! נשמח אם תעני על השאלות למטה.",
     photoLabel: "לחצי או גררי להעלאת תמונה",
     photoHint: "JPG · PNG · WEBP",
-    submitLabel: "אישור ושליחה",
     dateLocationLabel: "תאריך ומקום",
     dateLocationPlaceholder: "למשל: יולי 2026 · תל אביב",
     backToEditLabel: "חזרה לעריכה",
@@ -44,7 +42,6 @@ export const CONTENT: Record<
     intro: "Мы рады, что вы с нами! Пожалуйста, ответьте на вопросы ниже.",
     photoLabel: "Нажмите или перетащите фото сюда",
     photoHint: "JPG · PNG · WEBP",
-    submitLabel: "Подтвердить и отправить",
     dateLocationLabel: "Дата и место",
     dateLocationPlaceholder: "напр. июль 2026 · Тель-Авив",
     backToEditLabel: "Вернуться к редактированию",
@@ -58,7 +55,6 @@ export const CONTENT: Record<
     intro: "So glad you're here! Please answer the questions below.",
     photoLabel: "Click or drag to upload",
     photoHint: "JPG · PNG · WEBP",
-    submitLabel: "Confirm & submit",
     dateLocationLabel: "Date & location",
     dateLocationPlaceholder: "e.g. July 2026 · Tel Aviv",
     backToEditLabel: "Back to editing",

@@ -79,7 +79,7 @@ export default function PhotoDateStep({
           ) : (
             <>
               <span className="sub-photo-icon-circle">
-                <svg width="20" height="20" viewBox="0 0 20 20" fill="none">
+                <svg width="20" height="20" viewBox="0 0 20 20" fill="none" aria-hidden="true">
                   <path
                     d="M5.5 14.5a3 3 0 0 1-.6-5.94A4 4 0 0 1 12.7 6.2 3.5 3.5 0 0 1 14.5 13"
                     stroke="currentColor"

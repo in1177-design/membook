@@ -1,13 +1,9 @@
-import { Frank_Ruhl_Libre } from "next/font/google";
 import { STEP_OF_LABEL } from "./content";
 import { questionText, type Lang, type LangContent, type Question } from "./types";
 
-const headingFont = Frank_Ruhl_Libre({ subsets: ["hebrew", "latin"], weight: ["500", "700"] });
-
-// Copy for the "before sending" preview screen (Step 5) only — the "done"
-// (already-submitted) screen reuses this same component but keeps its older,
-// plainer corner-back-button layout below, since nothing here was asked to
-// change it and "before sending" wording would be wrong once it's been sent.
+// Copy for the "before sending" preview screen (Step 5) — the only screen
+// BookTextPage renders (the already-submitted "done" screen is a separate
+// component, DoneStepForm in steps/DoneStep.tsx).
 const STEP_TITLE: Record<Lang, string> = {
   HE: "לפני השליחה",
   RU: "Перед отправкой",
@@ -27,11 +23,6 @@ const SEND_LABEL: Record<Lang, string> = { HE: "שליחה", RU: "Отправи
 const SECTION_BLESSING_LABEL: Record<Lang, string> = { HE: "הברכה שלכם", RU: "Ваше пожелание", EN: "Your blessing" };
 const SECTION_QUESTION_LABEL: Record<Lang, string> = { HE: "השאלה והתשובה", RU: "Вопрос и ответ", EN: "Question and answer" };
 const SECTION_PHOTO_LABEL: Record<Lang, string> = { HE: "התמונה שלכם", RU: "Ваше фото", EN: "Your photo" };
-const PHOTO_NOTE: Record<Lang, string> = {
-  HE: "אפשר לשנות כל פרט לפני השליחה.",
-  RU: "Перед отправкой можно изменить любую деталь.",
-  EN: "You can change any detail before sending.",
-};
 const EDIT_LABEL: Record<Lang, string> = { HE: "עריכה", RU: "Изменить", EN: "Edit" };
 // Shown instead of real content only in the admin build page's generic
 // template preview (isAdminPreview) — there's no real guest yet to have
@@ -60,16 +51,44 @@ export const BOOK_STYLES = `
   .sub-page-form { padding-top: 8px; }
   .sub-spine { display: none; }
 
+  /* Mobile default: the bottom nav (StepBottomNav, Intro's start button,
+     Step 5's send/back, Done's back link — every step shares this one
+     wrapper class) is pinned to the real bottom of the phone screen, same
+     spot on every step regardless of content length, instead of trailing
+     wherever the page's content happens to end. Real position:fixed against
+     the true viewport — correct on the real guest link; the admin's
+     simulated mobile preview (PreviewDeviceFrame, a width-constrained box in
+     a normal desktop page, not a real narrow viewport) may pin this to the
+     bottom of the admin page instead of the simulated frame — a known,
+     accepted preview-only inaccuracy. */
+  .sub-page-form-bottom {
+    position: fixed;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    z-index: 20;
+    background: #fff;
+    max-width: 1048px; /* matches page.tsx's <main> so it lines up with the content column above it */
+    margin: 0 auto;
+    padding: 14px 24px calc(14px + env(safe-area-inset-bottom));
+    box-sizing: border-box;
+    box-shadow: 0 -6px 16px rgba(0,0,0,0.05);
+  }
+  /* Reserves room so the last bit of scrollable content is never hidden
+     underneath the now-fixed footer — one generous shared value rather than
+     measuring each step's actual (varying) footer height. */
+  .sub-page-form-scroll,
+  .sub-page-form > .sub-actions {
+    padding-bottom: 180px;
+  }
+
   /* Mobile default: the in-book photo panel (guest's own photo, side-by-side
      with the form at desktop) is hidden entirely — its mobile role is taken
      over by .sub-mobile-hero below (a full-width banner rendered ahead of
      the book on the 3 steps that have one: intro, preview, done) and, on the
      preview step specifically, by the small thumbnail inside its own review
-     card (see BookTextPage). .sub-page-photo-hide-mobile is now redundant
-     with this default but harmless — left alone rather than touching every
-     call site that still passes it. */
+     card (see BookTextPage). */
   .sub-page-photo { display: none; }
-  .sub-page-photo-hide-mobile { display: none; }
 
   /* Full-bleed hero banner (intro / preview / done, mobile only) — a
      decorative photo (project cover, or the guest's own once uploaded, per
@@ -79,7 +98,7 @@ export const BOOK_STYLES = `
      .sub-book-outer couldn't respond to it). */
   .sub-mobile-hero { position: relative; margin: 0 -24px 20px; overflow: hidden; }
   .sub-mobile-hero img { display: block; width: 100%; height: 230px; object-fit: cover; }
-  .sub-mobile-hero svg { position: absolute; bottom: -1px; left: 0; width: 100%; height: 26px; display: block; }
+  .sub-mobile-hero svg { position: absolute; bottom: -1px; left: 0; width: 100%; height: 40px; display: block; }
 
   /* Step 5 review card thumbnail + per-card edit link. */
   .sub-preview-photo-row { display: flex; align-items: center; gap: 12px; }
@@ -101,16 +120,7 @@ export const BOOK_STYLES = `
   .sub-photo-img { display: block; width: 100%; height: 100%; object-fit: cover; position: absolute; inset: 0; }
   .sub-photo-change { position: relative; z-index: 1; margin-top: auto; font-size: 12px; font-weight: 600; color: white; background: rgba(0,0,0,0.55); padding: 6px 14px; border-radius: 999px; }
 
-  .sub-summary-top { display: flex; justify-content: flex-end; margin-bottom: 40px; }
-  .sub-back-btn { display: inline-flex; align-items: center; gap: 6px; font-size: 13px; font-weight: 700; padding: 10px 18px; border-radius: 999px; border: 1px solid #d8d6d1; background: white; color: #5838b8; cursor: pointer; }
-  .sub-summary-body { display: grid; gap: 20px; text-align: center; }
-  .sub-summary-heading { font-size: 15px; font-style: italic; color: #8a7f6f; margin: 0 0 4px; font-family: ${headingFont.style.fontFamily}; }
-  .sub-summary-answer { font-size: 16px; color: #333; line-height: 1.9; margin: 0; white-space: pre-wrap; text-align: center; }
-  .sub-summary-dateloc { margin-top: 8px; text-align: center; }
-  .sub-summary-dateloc .sub-field-label { text-align: center; }
-  .sub-date-display { display: inline-block; padding: 12px 14px; font-size: 14px; border: 1px solid #e6e4e0; border-radius: 10px; background: #f7f6f4; color: #555; }
-
-  .sub-preview-subtext { font-size: 16px; color: #8a8a8a; margin: 6px 0 0; }
+  .sub-preview-subtext { font-size: 16px; color: #8a8a8a; margin: 6px 0 0; text-align: center; }
   .sub-preview-section { border: 1px solid #ece9e4; border-radius: 14px; padding: 16px 18px; margin-bottom: 14px; }
   .sub-preview-section-head { display: flex; align-items: center; justify-content: space-between; gap: 8px; margin: 0 0 10px; }
   .sub-preview-section-title { display: flex; align-items: center; gap: 8px; font-size: 14px; font-weight: 700; color: #2b2b2b; margin: 0; }
@@ -159,8 +169,14 @@ export const BOOK_STYLES = `
     .sub-page { flex: 1; min-width: 0; position: relative; }
     .sub-page-form { padding: 40px 40px 32px; display: flex; flex-direction: column; height: 100%; box-sizing: border-box; }
     .sub-page-form-top { flex-shrink: 0; }
-    .sub-page-form-scroll { flex: 1; min-height: 0; overflow-y: auto; margin: 4px -8px 0; padding: 0 8px; }
-    .sub-page-form-bottom { flex-shrink: 0; padding-top: 16px; }
+    .sub-page-form-scroll { flex: 1; min-height: 0; overflow-y: auto; margin: 4px -8px 0; padding: 0 8px 0; }
+    .sub-page-form-bottom {
+      position: static; left: auto; right: auto; bottom: auto; z-index: auto;
+      background: none; max-width: none; margin: 0; box-shadow: none;
+      flex-shrink: 0; padding: 16px 0 0;
+    }
+    .sub-page-form > .sub-actions { padding-bottom: 0; }
+    .sub-preview-subtext { text-align: start; }
     .sub-page-photo { padding: 28px; background: white; display: flex; order: 0; }
     .sub-photo-drop { flex: 1; min-height: 0; }
     .sub-spine {
@@ -178,9 +194,9 @@ export const BOOK_STYLES = `
   }
 `;
 
-export function PhotoPage({ photoUrl, className }: { photoUrl: string | null; className?: string }) {
+export function PhotoPage({ photoUrl }: { photoUrl: string | null }) {
   return (
-    <div className={`sub-page sub-page-photo${className ? ` ${className}` : ""}`}>
+    <div className="sub-page sub-page-photo">
       <div className={`sub-photo-drop${photoUrl ? " has-photo" : ""}`}>
         {photoUrl && <img src={photoUrl} alt="" className="sub-photo-img" />}
       </div>
@@ -190,7 +206,7 @@ export function PhotoPage({ photoUrl, className }: { photoUrl: string | null; cl
 
 function HeartIcon() {
   return (
-    <svg width="14" height="14" viewBox="0 0 16 16" fill="none">
+    <svg width="14" height="14" viewBox="0 0 16 16" fill="none" aria-hidden="true">
       <path
         d="M8 13.5s-5.5-3.3-5.5-7.1C2.5 4.3 4 3 5.7 3c1 0 2 .5 2.3 1.3C8.3 3.5 9.3 3 10.3 3 12 3 13.5 4.3 13.5 6.4c0 3.8-5.5 7.1-5.5 7.1z"
         stroke="currentColor"
@@ -201,19 +217,9 @@ function HeartIcon() {
   );
 }
 
-function QuestionIcon() {
-  return (
-    <svg width="14" height="14" viewBox="0 0 16 16" fill="none">
-      <circle cx="8" cy="8" r="6.5" stroke="currentColor" strokeWidth="1.4" />
-      <path d="M6.2 6.3c.2-1 1-1.6 1.9-1.6 1 0 1.9.6 1.9 1.7 0 1-.9 1.4-1.5 1.9-.4.3-.5.6-.5 1.1" stroke="currentColor" strokeWidth="1.3" strokeLinecap="round" />
-      <circle cx="8" cy="11.3" r="0.7" fill="currentColor" />
-    </svg>
-  );
-}
-
 function ChatIcon() {
   return (
-    <svg width="14" height="14" viewBox="0 0 16 16" fill="none">
+    <svg width="14" height="14" viewBox="0 0 16 16" fill="none" aria-hidden="true">
       <rect x="2" y="3" width="12" height="8" rx="2" stroke="currentColor" strokeWidth="1.4" />
       <path d="M5.5 11v2.5L8.5 11" stroke="currentColor" strokeWidth="1.4" strokeLinejoin="round" />
     </svg>
@@ -222,7 +228,7 @@ function ChatIcon() {
 
 function PhotoIcon() {
   return (
-    <svg width="14" height="14" viewBox="0 0 16 16" fill="none">
+    <svg width="14" height="14" viewBox="0 0 16 16" fill="none" aria-hidden="true">
       <rect x="2" y="3.5" width="12" height="9" rx="1.5" stroke="currentColor" strokeWidth="1.4" />
       <circle cx="6" cy="7" r="1" fill="currentColor" />
       <path d="M3 11l3.2-3 2.3 2 2-2.3L14 11" stroke="currentColor" strokeWidth="1.3" strokeLinecap="round" strokeLinejoin="round" />
@@ -232,7 +238,7 @@ function PhotoIcon() {
 
 function SendIcon() {
   return (
-    <svg width="15" height="15" viewBox="0 0 16 16" fill="none">
+    <svg width="15" height="15" viewBox="0 0 16 16" fill="none" aria-hidden="true">
       <path d="M14 2 6.7 9.3M14 2 9.7 14l-3-4.7L2 6.3 14 2Z" stroke="white" strokeWidth="1.4" strokeLinecap="round" strokeLinejoin="round" />
     </svg>
   );
@@ -240,7 +246,7 @@ function SendIcon() {
 
 function PencilIcon() {
   return (
-    <svg width="12" height="12" viewBox="0 0 16 16" fill="none">
+    <svg width="12" height="12" viewBox="0 0 16 16" fill="none" aria-hidden="true">
       <path
         d="M11.3 2.3a1.5 1.5 0 0 1 2.1 2.1L5.5 12.3l-2.8.7.7-2.8 7.9-7.9Z"
         stroke="currentColor"
@@ -272,8 +278,8 @@ export function StepProgress({ current, total }: { current: number; total: numbe
 // "none") to whatever width the hero happens to render at.
 function HeroWave() {
   return (
-    <svg viewBox="0 0 200 20" preserveAspectRatio="none">
-      <path d="M0,12 C50,22 150,2 200,12 L200,20 L0,20 Z" fill="#fdfcfb" />
+    <svg viewBox="0 0 200 40" preserveAspectRatio="none" aria-hidden="true">
+      <path d="M0,22 C35,42 65,2 100,18 C135,34 165,4 200,20 L200,40 L0,40 Z" fill="#fdfcfb" />
     </svg>
   );
 }
@@ -311,6 +317,7 @@ export function BookTextPage({
   onEdit,
   onConfirm,
   isSubmitting,
+  confirmDisabled,
   error,
   stepNumber,
   stepTotal,
@@ -336,14 +343,16 @@ export function BookTextPage({
   // generic template preview) simply hides the links, since there's no real
   // wizard state to jump to there.
   onEdit?: (step: "blessing" | "answerQuestion" | "photo") => void;
-  // Present only for the real "before sending" preview (Step 5) — its
-  // absence is how this component tells that apart from the plainer,
-  // already-submitted "done" screen, which reuses it without these.
-  onConfirm?: () => void;
-  isSubmitting?: boolean;
-  error?: string | null;
-  stepNumber?: number;
-  stepTotal?: number;
+  onConfirm: () => void;
+  isSubmitting: boolean;
+  // True when there's nothing new to send (unedited since the last
+  // successful submit) — disables the send button independently of
+  // isSubmitting. Optional/no-op (defaults to enabled) for callers that
+  // don't track this, e.g. the admin build page's generic template preview.
+  confirmDisabled?: boolean;
+  error: string | null;
+  stepNumber: number;
+  stepTotal: number;
   // True only for the admin build page's generic Step 5 template preview —
   // there's no real guest submission behind it, so every section shows
   // placeholder copy instead of the (empty) real answers/blessingText props.
@@ -351,7 +360,6 @@ export function BookTextPage({
 }) {
   const c = content[lang];
   const answeredQuestions = questions.filter((q) => (answers[q.id] ?? "").trim().length > 0);
-  const isBeforeSending = typeof onConfirm === "function";
 
   // The "before sending" question section: real answered question(s) for an
   // actual guest, or — in the admin's generic template preview, where
@@ -361,7 +369,7 @@ export function BookTextPage({
     ? questions.slice(0, 1).map((q) => ({ q, answerText: null as string | null }))
     : answeredQuestions.map((q) => ({ q, answerText: answers[q.id] }));
 
-  const summary = isBeforeSending ? (
+  const summary = (
     <div>
       <div className="sub-preview-section">
         <div className="sub-preview-section-head">
@@ -421,36 +429,9 @@ export function BookTextPage({
             )}
           </div>
           <div className="sub-preview-photo-row">
-            <img src={photoUrl} alt="" className="sub-preview-photo-thumb" />
+            <img src={photoUrl} alt={SECTION_PHOTO_LABEL[lang]} className="sub-preview-photo-thumb" />
             {photoFileName && <span className="sub-preview-photo-name">{photoFileName}</span>}
           </div>
-        </div>
-      )}
-    </div>
-  ) : (
-    <div className="sub-summary-body">
-      <p className="sub-summary-heading">{c.answersHeading}</p>
-      {answeredQuestions.map((q, i) => (
-        <div key={q.id}>
-          <p className="sub-summary-answer">{answers[q.id]}</p>
-          {i < answeredQuestions.length - 1 && <hr className="sub-divider" />}
-        </div>
-      ))}
-
-      {blessingText?.trim() && (
-        <div>
-          {answeredQuestions.length > 0 && <hr className="sub-divider" />}
-          <p className="sub-summary-answer">{blessingText}</p>
-          {blessingSignedBy?.trim() && (
-            <p style={{ fontSize: 13, color: "#8a7f6f", marginTop: 8, fontStyle: "italic" }}>— {blessingSignedBy}</p>
-          )}
-        </div>
-      )}
-
-      {dateLocation.trim() && (
-        <div className="sub-summary-dateloc">
-          <span className="sub-field-label">{c.dateLocationLabel}</span>
-          <div className="sub-date-display">{dateLocation}</div>
         </div>
       )}
     </div>
@@ -458,40 +439,32 @@ export function BookTextPage({
 
   return (
     <div className="sub-page sub-page-form">
-      {isBeforeSending ? (
-        <>
-          <div className="sub-page-form-top">
-            <p className="sub-eyebrow">
-              {STEP_OF_LABEL[lang](stepNumber ?? 0, stepTotal ?? 0)} · {STEP_TITLE[lang]}
-            </p>
-            <StepProgress current={stepNumber ?? 0} total={stepTotal ?? 0} />
-            <h1 className="sub-heading">{PREVIEW_HEADING[lang]}</h1>
-            <p className="sub-preview-subtext">{PREVIEW_SUBTEXT[lang]}</p>
-          </div>
-          <div className="sub-page-form-scroll">{summary}</div>
-          <div className="sub-page-form-bottom">
-            {error && <p style={{ color: "#b00020", marginBottom: 10, fontSize: 13 }}>{error}</p>}
-            <div className="sub-preview-actions">
-              <button type="button" className="sub-preview-btn-back" onClick={onBackToEdit} disabled={isSubmitting}>
-                {c.backToEditLabel}
-              </button>
-              <button type="button" className="sub-preview-btn-send" onClick={onConfirm} disabled={isSubmitting}>
-                <SendIcon />
-                {isSubmitting ? "..." : SEND_LABEL[lang]}
-              </button>
-            </div>
-          </div>
-        </>
-      ) : (
-        <>
-          <div className="sub-summary-top">
-            <button type="button" className="sub-back-btn" onClick={onBackToEdit}>
-              <span>›</span> {c.backToEditLabel}
-            </button>
-          </div>
-          {summary}
-        </>
-      )}
+      <div className="sub-page-form-top">
+        <p className="sub-eyebrow">
+          {STEP_OF_LABEL[lang](stepNumber ?? 0, stepTotal ?? 0)} · {STEP_TITLE[lang]}
+        </p>
+        <StepProgress current={stepNumber ?? 0} total={stepTotal ?? 0} />
+        <h1 className="sub-heading">{PREVIEW_HEADING[lang]}</h1>
+        <p className="sub-preview-subtext">{PREVIEW_SUBTEXT[lang]}</p>
+      </div>
+      <div className="sub-page-form-scroll">{summary}</div>
+      <div className="sub-page-form-bottom">
+        {error && <p style={{ color: "#b00020", marginBottom: 10, fontSize: 13 }}>{error}</p>}
+        <div className="sub-preview-actions">
+          <button type="button" className="sub-preview-btn-back" onClick={onBackToEdit} disabled={isSubmitting}>
+            {c.backToEditLabel}
+          </button>
+          <button
+            type="button"
+            className="sub-preview-btn-send"
+            onClick={onConfirm}
+            disabled={isSubmitting || confirmDisabled}
+          >
+            <SendIcon />
+            {isSubmitting ? "..." : SEND_LABEL[lang]}
+          </button>
+        </div>
+      </div>
     </div>
   );
 }
@@ -511,7 +484,7 @@ export default function SubmissionBook(
       <div className="sub-book">
         <BookTextPage {...pageProps} photoUrl={photoUrl} />
         <div className="sub-spine" />
-        <PhotoPage photoUrl={photoUrl} className="sub-page-photo-hide-mobile" />
+        <PhotoPage photoUrl={photoUrl} />
       </div>
     </div>
   );

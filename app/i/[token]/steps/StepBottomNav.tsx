@@ -1,3 +1,4 @@
+import type { ReactNode } from "react";
 import type { Lang } from "../types";
 
 // "Forward" points toward the start of the reading direction (left in
@@ -6,7 +7,7 @@ import type { Lang } from "../types";
 function ChevronIcon({ lang, forward = false, color }: { lang: Lang; forward?: boolean; color: string }) {
   const pointsLeft = forward ? lang === "HE" : lang !== "HE";
   return (
-    <svg width="14" height="14" viewBox="0 0 16 16" fill="none" style={{ flexShrink: 0 }}>
+    <svg width="14" height="14" viewBox="0 0 16 16" fill="none" style={{ flexShrink: 0 }} aria-hidden="true">
       <path
         d={pointsLeft ? "M10 3 5 8l5 5" : "M6 3l5 5-5 5"}
         stroke={color}
@@ -33,6 +34,7 @@ export default function StepBottomNav({
   onBack,
   isSaving,
   error,
+  beforeButtons,
 }: {
   lang: Lang;
   continueLabel: string;
@@ -42,9 +44,14 @@ export default function StepBottomNav({
   onBack: () => void;
   isSaving?: boolean;
   error?: string | null;
+  // Extra content rendered above the buttons, still inside the same (fixed
+  // on mobile) wrapper — currently only used by PhotoStep for its "add a
+  // photo later" hint card. Optional so every other caller is unaffected.
+  beforeButtons?: ReactNode;
 }) {
   return (
     <div className="sub-page-form-bottom sub-step-bottom">
+      {beforeButtons}
       {error && <p style={{ color: "#b00020", marginBottom: 12, fontSize: 13 }}>{error}</p>}
       <button
         type="button"

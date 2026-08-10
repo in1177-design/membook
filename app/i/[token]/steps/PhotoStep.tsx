@@ -23,6 +23,19 @@ const HINT_LINE_2: Record<Lang, string> = {
 const OR_LABEL: Record<Lang, string> = { HE: "או", RU: "или", EN: "or" };
 const ADD_PHOTO_LABEL: Record<Lang, string> = { HE: "הוספת תמונה", RU: "Добавить фотографию", EN: "Add photo" };
 const CHANGE_PHOTO_LABEL: Record<Lang, string> = { HE: "שינוי תמונה", RU: "Изменить фото", EN: "Change photo" };
+// The mobile-only inline drop-zone (§3 of the plan) — a real file picker
+// (no camera capture) living inside the form's scroll area, distinct from
+// PhotoDropPanel's own bigger panel (which stays hidden on mobile).
+const DROP_TITLE: Record<Lang, string> = {
+  HE: "בחרו תמונה מהמכשיר",
+  RU: "Выберите фото с устройства",
+  EN: "Choose a photo from your device",
+};
+const DROP_SUBTITLE: Record<Lang, string> = {
+  HE: "גררו לכאן תמונה או לחצו לבחירה",
+  RU: "Перетащите сюда фото или нажмите, чтобы выбрать",
+  EN: "Drag a photo here or click to choose",
+};
 const TAKE_PHOTO_LABEL: Record<Lang, string> = { HE: "צלמו עכשיו במצלמה", RU: "Сделать фото сейчас", EN: "Take a photo now" };
 const FORMAT_HINT: Record<Lang, string> = {
   HE: "פורמטים נתמכים: JPG, PNG, HEIC",
@@ -47,7 +60,7 @@ const BACK_LABEL: Record<Lang, string> = {
 
 function PhotoAddIcon() {
   return (
-    <svg width="26" height="26" viewBox="0 0 26 26" fill="none">
+    <svg width="26" height="26" viewBox="0 0 26 26" fill="none" aria-hidden="true">
       <rect x="2" y="4" width="22" height="17" rx="2.5" stroke="currentColor" strokeWidth="1.6" />
       <circle cx="9" cy="10" r="1.6" fill="currentColor" />
       <path d="M3.5 18 9 12.5l3.5 3.5 3.5-4L22.5 18" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" />
@@ -57,7 +70,7 @@ function PhotoAddIcon() {
 
 function CameraIcon() {
   return (
-    <svg width="16" height="16" viewBox="0 0 18 18" fill="none">
+    <svg width="16" height="16" viewBox="0 0 18 18" fill="none" aria-hidden="true">
       <path
         d="M2.5 6c0-.8.7-1.5 1.5-1.5h1.3l.7-1.2c.2-.4.6-.6 1-.6h3.2c.4 0 .8.2 1 .6l.7 1.2H14c.8 0 1.5.7 1.5 1.5v7c0 .8-.7 1.5-1.5 1.5H4c-.8 0-1.5-.7-1.5-1.5V6Z"
         stroke="currentColor"
@@ -71,7 +84,7 @@ function CameraIcon() {
 
 function HeartIcon() {
   return (
-    <svg width="18" height="18" viewBox="0 0 18 18" fill="none">
+    <svg width="18" height="18" viewBox="0 0 18 18" fill="none" aria-hidden="true">
       <path
         d="M9 15.2S2.8 11.4 2.8 6.9C2.8 4.7 4.5 3.2 6.5 3.2c1.1 0 2.2.6 2.5 1.5.3-.9 1.4-1.5 2.5-1.5 2 0 3.7 1.5 3.7 3.7 0 4.5-6.2 8.3-6.2 8.3z"
         stroke="#8b7fd6"
@@ -101,6 +114,7 @@ export function PhotoStepForm({
   error,
   stepNumber,
   stepTotal,
+  photoPreviewUrl,
 }: {
   lang: Lang;
   photoRequestText: string;
@@ -120,6 +134,9 @@ export function PhotoStepForm({
   error: string | null;
   stepNumber: number;
   stepTotal: number;
+  // Drives the new mobile inline drop-zone's selected-photo state below —
+  // optional so the admin build page (no real photo yet) can omit it.
+  photoPreviewUrl?: string | null;
 }) {
   const cameraInputRef = useRef<HTMLInputElement>(null);
   const isEditable = typeof onPhotoRequestTextChange === "function";
@@ -148,6 +165,46 @@ export function PhotoStepForm({
           <p className="sub-photo-subtext">{photoRequestText}</p>
         )}
 
+        {/* Mobile-only real file picker (no camera capture) — the actual
+            "choose from device" affordance; PhotoDropPanel's own panel stays
+            hidden on mobile (.sub-page-photo{display:none}), so without this
+            mobile guests previously had no way to pick an existing photo.
+            Kept in this exact DOM position (right before the desktop-only
+            hint box below) so hiding/showing each via CSS reproduces
+            desktop's original order untouched — see WIZARD_EXTRA_STYLES. */}
+        <label className={`sub-photo-inline-drop${photoPreviewUrl ? " has-photo" : ""}`}>
+          {photoPreviewUrl ? (
+            <>
+              <img
+                src={photoPreviewUrl}
+                alt=""
+                className="sub-photo-inline-drop-img"
+                onError={(e) => {
+                  e.currentTarget.style.display = "none";
+                }}
+              />
+              <span className="sub-photo-inline-drop-change">{CHANGE_PHOTO_LABEL[lang]}</span>
+            </>
+          ) : (
+            <>
+              <PhotoAddIcon />
+              <span className="sub-photo-inline-drop-title">{DROP_TITLE[lang]}</span>
+              <span className="sub-photo-inline-drop-subtitle">{DROP_SUBTITLE[lang]}</span>
+              <hr className="sub-photo-inline-drop-divider" />
+              <span className="sub-photo-inline-drop-hint">{FORMAT_HINT[lang]}</span>
+              <span className="sub-photo-inline-drop-hint">{SIZE_HINT[lang]}</span>
+            </>
+          )}
+          <input
+            type="file"
+            accept="image/*,.heic,.heif"
+            onChange={(e) => onPhotoChange(e.target.files?.[0] ?? null)}
+            style={{ display: "none" }}
+          />
+        </label>
+
+        {/* Desktop-only from here on (hidden on mobile — its content now
+            lives inside the drop-zone above / the footer hint card below). */}
         <div className="sub-photo-hint-box">
           <div>
             <p className="sub-photo-hint-line1">{HINT_LINE_1[lang]}</p>
@@ -187,6 +244,15 @@ export function PhotoStepForm({
         onBack={onBack}
         isSaving={isSaving}
         error={error}
+        beforeButtons={
+          // Mobile-only (CSS-hidden on desktop) — matches the user's
+          // annotated screenshot: this hint card is part of the fixed
+          // bottom block together with the continue/back buttons.
+          <div className="sub-photo-hint-card">
+            <p className="sub-photo-hint-line1">{HINT_LINE_1[lang]}</p>
+            <p className="sub-photo-hint-line2">{HINT_LINE_2[lang]}</p>
+          </div>
+        }
       />
     </div>
   );
@@ -200,16 +266,14 @@ export function PhotoDropPanel({
   photoPreviewUrl,
   coverImageUrl,
   onPhotoChange,
-  className,
 }: {
   lang: Lang;
   photoPreviewUrl: string | null;
   coverImageUrl?: string | null;
   onPhotoChange: (file: File | null) => void;
-  className?: string;
 }) {
   return (
-    <div className={`sub-page sub-page-photo${className ? ` ${className}` : ""}`}>
+    <div className="sub-page sub-page-photo">
       <label className={`sub-photo-drop${photoPreviewUrl ? " has-photo" : ""}`}>
         {photoPreviewUrl ? (
           <>
@@ -257,7 +321,7 @@ export default function PhotoStep(
   const { photoPreviewUrl, coverImageUrl, ...formProps } = props;
   return (
     <>
-      <PhotoStepForm {...formProps} />
+      <PhotoStepForm {...formProps} photoPreviewUrl={photoPreviewUrl} />
       <div className="sub-spine" />
       <PhotoDropPanel
         lang={props.lang}

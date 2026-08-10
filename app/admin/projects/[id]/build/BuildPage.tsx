@@ -52,15 +52,24 @@ type ProjectData = {
 type QuestionRow = { id: string | null; textHe: string; textRu: string; textEn: string };
 
 // Mirrors the real PICK_ONE step order (intro → blessing → chooseQuestion →
-// answerQuestion → photo → preview → done). All six are wired up.
+// answerQuestion → photo → preview → done). All six are wired up as tabs
+// here, but "done" is virtual — same as the real guest wizard
+// (SubmissionWizard.tsx) — so it's unlabeled/uncounted below rather than
+// "6 - ...".
 const STEP_LABELS = [
   { id: "intro", label: "1 - הסבר" },
   { id: "blessing", label: "2 - ברכה" },
   { id: "question", label: "3 - שאלה" },
   { id: "photo", label: "4 - תמונה" },
   { id: "preview", label: "5 - תצוגה ואישור" },
-  { id: "done", label: "6 - נשלח!" },
+  { id: "done", label: "נשלח!" },
 ];
+
+// The guest-facing "step N of TOTAL" count, matching the real guest wizard's
+// STEP_DISPLAY_TOTAL_PICK_ONE — "done" is a virtual, uncounted screen (shown
+// once right after a real send, never numbered as its own step), so this is
+// STEP_LABELS.length - 1, not STEP_LABELS.length.
+const STEP_DISPLAY_TOTAL = STEP_LABELS.length - 1;
 
 const QUESTION_PLACEHOLDER: Record<Lang, (n: number) => string> = {
   HE: (n) => `שאלה מספר ${n}`,
@@ -389,7 +398,7 @@ export default function BuildPage({ project }: { project: ProjectData }) {
               isSubmitting={false}
               error={null}
               stepNumber={5}
-              stepTotal={STEP_LABELS.length}
+              stepTotal={STEP_DISPLAY_TOTAL}
               isAdminPreview
             />
           ) : activeStep === "photo" ? (
@@ -414,7 +423,8 @@ export default function BuildPage({ project }: { project: ProjectData }) {
               isSaving={false}
               error={null}
               stepNumber={4}
-              stepTotal={STEP_LABELS.length}
+              stepTotal={STEP_DISPLAY_TOTAL}
+              photoPreviewUrl={null}
             />
           ) : activeStep === "done" ? (
             // Same idea as "preview"/"photo" above: fixed, non-editable copy
@@ -422,7 +432,7 @@ export default function BuildPage({ project }: { project: ProjectData }) {
             // submission was received" screen), so it renders identically in
             // both modes. No onBackToEdit here — there's no real in-progress
             // submission behind this generic preview to go back to.
-            <DoneStepForm lang={previewLang} stepNumber={6} stepTotal={STEP_LABELS.length} />
+            <DoneStepForm lang={previewLang} stepNumber={STEP_DISPLAY_TOTAL} stepTotal={STEP_DISPLAY_TOTAL} />
           ) : mode === "preview" ? (
             activeStep === "intro" ? (
               <IntroStep
@@ -433,7 +443,7 @@ export default function BuildPage({ project }: { project: ProjectData }) {
                 introText={introTextFor(previewLang)}
                 guidance={guidanceMap[previewLang]}
                 stepNumber={1}
-                stepTotal={STEP_LABELS.length}
+                stepTotal={STEP_DISPLAY_TOTAL}
                 onStart={() => {}}
               />
             ) : activeStep === "blessing" ? (
@@ -450,7 +460,7 @@ export default function BuildPage({ project }: { project: ProjectData }) {
                 isSaving={false}
                 error={null}
                 stepNumber={2}
-                stepTotal={STEP_LABELS.length}
+                stepTotal={STEP_DISPLAY_TOTAL}
               />
             ) : previewSubStep === "choose" || !previewSelectedQuestion ? (
               <ChooseQuestionStep
@@ -464,7 +474,7 @@ export default function BuildPage({ project }: { project: ProjectData }) {
                 }}
                 onBack={() => {}}
                 stepNumber={3}
-                stepTotal={STEP_LABELS.length}
+                stepTotal={STEP_DISPLAY_TOTAL}
               />
             ) : (
               <AnswerQuestionStep
@@ -478,7 +488,7 @@ export default function BuildPage({ project }: { project: ProjectData }) {
                 isSaving={false}
                 error={null}
                 stepNumber={3}
-                stepTotal={STEP_LABELS.length}
+                stepTotal={STEP_DISPLAY_TOTAL}
               />
             )
           ) : activeStep === "question" ? (
@@ -624,15 +634,12 @@ export default function BuildPage({ project }: { project: ProjectData }) {
             // The real drop-zone look (40%-opacity cover-photo backdrop +
             // "add photo" button) instead of this shell's usual plain
             // PhotoPage — matches the real guest wizard, where steps 2-4 all
-            // show this same "add a photo" invitation. On mobile: steps 2-3
-            // (blessing, question) skip it entirely, same as the guest
-            // wizard; step 4 uses the default float-to-top behavior.
+            // show this same "add a photo" invitation.
             <PhotoDropPanel
               lang={previewLang}
               photoPreviewUrl={null}
               coverImageUrl={project.coverImageUrl}
               onPhotoChange={() => {}}
-              className={activeStep === "blessing" || activeStep === "question" ? "sub-page-photo-hide-mobile" : undefined}
             />
           ) : (
             <PhotoPage photoUrl={project.coverImageUrl} />

@@ -1,14 +1,25 @@
 "use client";
 
-import { useState } from "react";
+import { cloneElement, isValidElement, useState, type ReactElement } from "react";
 import { colors } from "../../formStyles";
+import type { Lang } from "../../../../i/[token]/types";
 
-export default function PreviewDeviceFrame({ children }: { children: React.ReactNode }) {
+export default function PreviewDeviceFrame({
+  children,
+  initialLanguage,
+}: {
+  // The wrapped element (always <SubmissionWizard previewMode ... />) gets a
+  // `lang` prop injected below so the language toggle here can drive it —
+  // see the controlledLang sync effect in SubmissionWizard.tsx.
+  children: ReactElement<{ lang?: Lang }>;
+  initialLanguage: Lang;
+}) {
   const [device, setDevice] = useState<"desktop" | "mobile">("desktop");
+  const [lang, setLang] = useState<Lang>(initialLanguage);
 
   return (
     <div>
-      <div style={{ display: "flex", justifyContent: "center", marginBottom: 20 }}>
+      <div style={{ display: "flex", justifyContent: "center", alignItems: "center", gap: 10, marginBottom: 20 }}>
         <div style={{ display: "inline-flex", padding: 3, borderRadius: 999, background: "#f1efe9", border: `1px solid ${colors.border}` }}>
           <button type="button" onClick={() => setDevice("desktop")} style={segmentStyle(device === "desktop")} aria-label="תצוגת דסקטופ">
             <DesktopIcon />
@@ -17,9 +28,19 @@ export default function PreviewDeviceFrame({ children }: { children: React.React
             <MobileIcon />
           </button>
         </div>
+
+        <div style={{ display: "inline-flex", padding: 3, borderRadius: 999, background: "#f1efe9", border: `1px solid ${colors.border}` }}>
+          {(["HE", "RU", "EN"] as Lang[]).map((l) => (
+            <button key={l} type="button" onClick={() => setLang(l)} style={segmentStyle(lang === l)} aria-label={`שפה: ${l}`}>
+              {l}
+            </button>
+          ))}
+        </div>
       </div>
 
-      <div style={device === "mobile" ? { maxWidth: 420, margin: "0 auto" } : undefined}>{children}</div>
+      <div style={device === "mobile" ? { maxWidth: 420, margin: "0 auto" } : undefined}>
+        {isValidElement(children) ? cloneElement(children, { lang }) : children}
+      </div>
     </div>
   );
 }
