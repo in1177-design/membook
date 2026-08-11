@@ -1,3 +1,4 @@
+import type { Metadata } from "next";
 import { headers } from "next/headers";
 import { prisma } from "../../../lib/prisma";
 import { detectDeviceType, detectIsBot } from "../../../lib/tracking";
@@ -6,6 +7,33 @@ import SubmissionWizard from "./SubmissionWizard";
 import { CONTENT, PICK_ONE_FALLBACK_TEXT, introGuidanceFor, eventTypeLabelFor } from "./content";
 
 export const dynamic = "force-dynamic";
+
+// Link-preview metadata (WhatsApp, iMessage, etc. read og:* tags, not the
+// plain <title>) — without this, a shared invite link shows the raw
+// vercel.app domain instead of the project's name/photo.
+export async function generateMetadata({ params }: { params: Promise<{ token: string }> }): Promise<Metadata> {
+  const { token } = await params;
+  const inviteLink = await prisma.inviteLink.findUnique({
+    where: { token },
+    select: { invitee: { select: { project: true } } },
+  });
+
+  if (!inviteLink) return { title: "מילים ותמונות באהבה מכולנו" };
+
+  const { project } = inviteLink.invitee;
+  const title = project.guestHeadlineHe ?? project.name;
+  const description = `${project.name} — מוזמנים לשתף תמונה וברכה לאלבום המשותף`;
+
+  return {
+    title,
+    description,
+    openGraph: {
+      title,
+      description,
+      images: project.coverImageUrl ? [{ url: project.coverImageUrl }] : undefined,
+    },
+  };
+}
 
 export default async function InviteePage({ params }: { params: Promise<{ token: string }> }) {
   const { token } = await params;
