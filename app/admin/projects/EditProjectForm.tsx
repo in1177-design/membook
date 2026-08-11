@@ -9,7 +9,7 @@ import QuestionsBuilder from "./QuestionsBuilder";
 import QuestionModeSelect from "./QuestionModeSelect";
 import LanguageCheckboxes from "./LanguageCheckboxes";
 import { celebrantLabelFor } from "./eventTypeEmoji";
-import { colors, labelStyle, sectionHeaderStyle, inputStyle, ltrInputStyle, rowStyle, buttonStyle, dividerStyle } from "./formStyles";
+import { colors, labelStyle, sectionHeaderStyle, inputStyle, ltrInputStyle, rowStyle, buttonStyle, dividerStyle, cardStyle } from "./formStyles";
 
 type Props = {
   project: {
@@ -176,7 +176,12 @@ export default function EditProjectForm({ project, eventTypeOptions, questionTem
   const pickOneColumnCount = 1 + (showRu ? 1 : 0) + (showEn ? 1 : 0);
 
   return (
-    <form onSubmit={handleSubmit} style={{ display: "grid", gap: 28 }}>
+    <form onSubmit={handleSubmit} style={{ display: "grid", gap: 20 }}>
+      {/* Card 1: פרטי הפרויקט — same card treatment as the "מוזמנים" table
+          (see formStyles' cardStyle), grouping the main details form with
+          the question-mode/languages row that used to sit below its own
+          <hr>. */}
+      <div style={{ ...cardStyle, display: "grid", gap: 20 }}>
       <div style={{ display: "grid", gap: 16 }}>
         <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 16 }}>
           <h3 style={sectionHeaderStyle}>פרטי הראשיים</h3>
@@ -261,9 +266,11 @@ export default function EditProjectForm({ project, eventTypeOptions, questionTem
           <LanguageCheckboxes showRu={showRu} showEn={showEn} onChangeRu={setShowRu} onChangeEn={setShowEn} readOnly={readOnly} />
         </div>
       </div>
+      </div>
 
-      <hr style={dividerStyle} />
-
+      {/* Card 2: טקסטים — the intro text, questions, and (PICK_ONE only)
+          blessing-prompt/photo-request text builders, grouped together. */}
+      <div style={{ ...cardStyle, display: "grid", gap: 24 }}>
       <IntroTextBuilder
         templates={introTemplates}
         initialText={project.introTextHe ?? ""}
@@ -347,10 +354,10 @@ export default function EditProjectForm({ project, eventTypeOptions, questionTem
           </div>
         </>
       )}
+      </div>
 
-      <hr style={dividerStyle} />
-
-      <div style={{ display: "grid", gap: 16 }}>
+      {/* Card 3: בניית הודעות לאורחים */}
+      <div style={{ ...cardStyle, display: "grid", gap: 16 }}>
         <div style={{ display: "grid", gap: 4 }}>
           <div style={{ display: "flex", justifyContent: "flex-start" }}>
             <h3 style={sectionHeaderStyle}>הודעות לאורחים</h3>

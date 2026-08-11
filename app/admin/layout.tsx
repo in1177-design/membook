@@ -14,7 +14,7 @@ export default async function AdminLayout({ children }: { children: React.ReactN
     orderBy: { createdAt: "desc" },
     include: {
       invitees: {
-        select: { submission: { select: { id: true } } },
+        select: { submission: { select: { completedAt: true } } },
       },
     },
   });
@@ -27,13 +27,17 @@ export default async function AdminLayout({ children }: { children: React.ReactN
     id: p.id,
     name: p.name,
     totalParticipants: p.invitees.length,
-    submittedCount: p.invitees.filter((i) => i.submission).length,
+    // completedAt (not mere submission existence) — a Submission row can
+    // exist from an admin pre-loading a photo before the invite is even
+    // sent (see InviteesTable.tsx's statusOf), which shouldn't count toward
+    // "submitted" here either.
+    submittedCount: p.invitees.filter((i) => i.submission?.completedAt).length,
   }));
 
   return (
-    <div style={{ display: "flex", gap: 24, alignItems: "flex-start", width: "100%", padding: "24px 16px 24px 0", boxSizing: "border-box" }}>
+    <div style={{ display: "flex", gap: 24, alignItems: "stretch", width: "100%", minHeight: "100vh", padding: "24px 16px 24px 0", boxSizing: "border-box" }}>
       <ProjectSidebar allProjects={allProjects} />
-      <div style={{ flex: 1, minWidth: 0, maxWidth: 1400, margin: "0 auto", paddingInlineEnd: 24 }}>{children}</div>
+      <div style={{ flex: 1, minWidth: 0, maxWidth: 1400, margin: "0 auto", paddingInlineEnd: 24, display: "flex", flexDirection: "column" }}>{children}</div>
     </div>
   );
 }

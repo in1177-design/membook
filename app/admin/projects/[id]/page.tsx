@@ -30,7 +30,10 @@ export default async function ProjectDetailPage({ params }: { params: Promise<{ 
     (sum, invitee) => sum + (invitee.submission?.mediaAssets.length ?? 0),
     0
   );
-  const submittedCount = project.invitees.filter((i) => i.submission).length;
+  // completedAt (not mere submission existence) — see InviteesTable.tsx's
+  // statusOf for why: a Submission row can exist purely from an admin
+  // pre-loading a photo before the invite is ever sent.
+  const submittedCount = project.invitees.filter((i) => i.submission?.completedAt).length;
   const startedCount = project.invitees.filter((i) => i.inviteLink?.firstViewedAt).length;
 
   const headersList = await headers();
@@ -39,7 +42,7 @@ export default async function ProjectDetailPage({ params }: { params: Promise<{ 
   const baseUrl = `${proto}://${host}`;
 
   return (
-    <main>
+    <main style={{ display: "flex", flexDirection: "column", flex: 1, minHeight: 0 }}>
       <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 4 }}>
         <h1 style={{ fontSize: 24, margin: 0 }}>{project.name}</h1>
         <ProjectActionsMenu projectId={project.id} status={project.status} totalPhotos={totalPhotos} />
@@ -60,6 +63,10 @@ export default async function ProjectDetailPage({ params }: { params: Promise<{ 
         <ProjectSettingsCard projectId={project.id} projectName={project.name} coverImageUrl={project.coverImageUrl} />
       </DashboardCards>
 
+      {/* Flex-grows to fill remaining vertical space down to the viewport
+          bottom (minHeight:0 lets it shrink below content size so its own
+          internal scroll area — not the whole page — handles overflow). */}
+      <div style={{ flex: 1, display: "flex", flexDirection: "column", minHeight: 0 }}>
       <InviteesTable
         projectId={project.id}
         baseUrl={baseUrl}
@@ -88,6 +95,7 @@ export default async function ProjectDetailPage({ params }: { params: Promise<{ 
           emailBodyEn: project.emailBodyTemplateEn,
         }}
       />
+      </div>
     </main>
   );
 }

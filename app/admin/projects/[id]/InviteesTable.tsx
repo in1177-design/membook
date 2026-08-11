@@ -10,6 +10,8 @@ import ImportInviteesFromSheet from "./ImportInviteesFromSheet";
 import type { Lang } from "../../../i/[token]/types";
 import {
   addInvitee,
+  addInviteeMediaAsset,
+  deleteMediaAsset,
   updateInvitee,
   deleteInvitee,
   markInviteSent,
@@ -40,6 +42,7 @@ type Invitee = {
   } | null;
   submission: {
     submittedAt: Date;
+    completedAt: Date | null;
     dateLocation: string | null;
     blessingText: string | null;
     blessingSignedBy: string | null;
@@ -156,13 +159,20 @@ const ATTENDING_UNSET_STYLE = { bg: "#f1f1f1", color: "#999", label: "לא נק�
 
 const STATUS_STYLE: Record<string, { bg: string; color: string; label: string }> = {
   submitted: { bg: "#e3f8ec", color: "#0f9d58", label: "הוגש" },
+  // A Submission row exists (e.g. an admin pre-loaded a photo before the
+  // invite was ever sent — AddInviteeForm/EditInviteeForm/AlbumPageView —
+  // or a guest started the wizard and left) but completedAt is still null,
+  // per its own schema comment: "distinguishes 'in progress' from 'actually
+  // done'". Only a real completed submission should ever say "הוגש".
+  inProgress: { bg: "#f1effb", color: "#5838b8", label: "בתהליך" },
   viewed: { bg: "#e8f0fe", color: "#1a56db", label: "נפתח" },
   sent: { bg: "#fef6e0", color: "#a15c00", label: "נשלח" },
   pending: { bg: "#f1f1f1", color: "#777", label: "טרם נשלח" },
 };
 
 function statusOf(invitee: Invitee): keyof typeof STATUS_STYLE {
-  if (invitee.submission) return "submitted";
+  if (invitee.submission?.completedAt) return "submitted";
+  if (invitee.submission) return "inProgress";
   if (invitee.inviteLink?.firstViewedAt) return "viewed";
   if (invitee.inviteLink?.sentAt) return "sent";
   return "pending";
@@ -176,14 +186,6 @@ export default function InviteesTable({ projectId, baseUrl, invitees, questions,
   const [showImport, setShowImport] = useState(false);
   const [editingInvitee, setEditingInvitee] = useState<Invitee | null>(null);
   const [previewingInvitee, setPreviewingInvitee] = useState<Invitee | null>(null);
-  const [copiedId, setCopiedId] = useState<string | null>(null);
-
-  function copyLink(inviteeId: string, token: string) {
-    navigator.clipboard.writeText(`${baseUrl}/i/${token}`).then(() => {
-      setCopiedId(inviteeId);
-      setTimeout(() => setCopiedId((v) => (v === inviteeId ? null : v)), 1500);
-    });
-  }
 
   return (
     <div style={cardStyle}>
@@ -192,7 +194,7 @@ export default function InviteesTable({ projectId, baseUrl, invitees, questions,
         <AddInviteeMenu onAddSingle={() => setShowAdd(true)} onImportFromSheet={() => setShowImport(true)} />
       </div>
 
-      <div style={{ overflowX: "auto" }}>
+      <div style={{ overflowX: "auto", overflowY: "auto", flex: 1, minHeight: 0 }}>
         <table style={{ width: "100%", minWidth: 900, borderCollapse: "collapse", fontSize: 14 }}>
           <thead>
             <tr>
@@ -205,7 +207,6 @@ export default function InviteesTable({ projectId, baseUrl, invitees, questions,
               <th style={thStyle}>תמונות</th>
               <th style={thStyle}>כניסה ראשונה</th>
               <th style={thStyle}>כניסה אחרונה</th>
-              <th style={thStyle}>קישור</th>
               <th style={thStyle}></th>
             </tr>
           </thead>
@@ -288,19 +289,9 @@ export default function InviteesTable({ projectId, baseUrl, invitees, questions,
                     {link?.lastViewedAt ? link.lastViewedAt.toLocaleDateString("he-IL") : "—"}
                   </td>
                   <td style={tdStyle}>
-                    {link && !link.revokedAt ? (
-                      <button type="button" onClick={() => copyLink(invitee.id, link.token)} style={iconButtonStyle} aria-label="העתקת קישור">
-                        {copiedId === invitee.id ? <CheckIcon /> : <LinkIcon />}
-                      </button>
-                    ) : (
-                      <span style={{ color: "#bbb" }}>—</span>
-                    )}
-                  </td>
-                  <td style={tdStyle}>
                     <RowActions
                       invitee={invitee}
                       projectId={projectId}
-                      onEdit={() => setEditingInvitee(invitee)}
                       onPreview={() => setPreviewingInvitee(invitee)}
                       baseUrl={baseUrl}
                       celebrantNames={celebrantNames}
@@ -313,7 +304,7 @@ export default function InviteesTable({ projectId, baseUrl, invitees, questions,
             })}
             {invitees.length === 0 && (
               <tr>
-                <td style={tdStyle} colSpan={11}>
+                <td style={tdStyle} colSpan={10}>
                   אין עדיין מוזמנים.
                 </td>
               </tr>
@@ -413,7 +404,6 @@ function ProgressDots({ invitee }: { invitee: Invitee }) {
 function RowActions({
   invitee,
   projectId,
-  onEdit,
   onPreview,
   baseUrl,
   celebrantNames,
@@ -422,7 +412,6 @@ function RowActions({
 }: {
   invitee: Invitee;
   projectId: string;
-  onEdit: () => void;
   onPreview: () => void;
   baseUrl: string;
   celebrantNames: string;
@@ -460,9 +449,12 @@ function RowActions({
       >
         <EyeIcon />
       </button>
-      <button type="button" onClick={onEdit} style={iconButtonStyle} title="עריכה" aria-label="עריכה">
-        <PencilIcon />
-      </button>
+      <CopyTemplateButton
+        icon={<LinkIcon />}
+        label="העתקת קישור אישי"
+        text={personalLink}
+        disabledReason={noLinkReason}
+      />
       <CopyTemplateButton
         icon={<WhatsAppIcon />}
         label="העתקת הודעת וואטסאפ"
@@ -874,13 +866,65 @@ function AddInviteeForm({
   );
   const options = LANGUAGE_TOGGLE_OPTIONS.filter((opt) => enabledLanguages.includes(opt.value));
   const noLanguagesAvailable = enabledLanguages.length === 0;
+  // Optional photo, attached right after creation via the same admin upload
+  // flow AlbumPageView already uses (sign → Cloudinary → addInviteeMediaAsset)
+  // — saved as this invitee's real photo answer (Submission.mediaAssets[0]),
+  // so the guest wizard shows it as already-uploaded and can keep/replace/
+  // delete it with its existing functionality, no new mechanism.
+  const [photoFile, setPhotoFile] = useState<File | null>(null);
 
   async function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
     setError(null);
     setSubmitting(true);
     try {
-      await addInvitee(projectId, new FormData(e.currentTarget));
+      const { id: inviteeId } = await addInvitee(projectId, new FormData(e.currentTarget));
+      if (photoFile) {
+        try {
+          const signRes = await fetch("/api/admin/invitee-photo-sign", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ inviteeId, projectId }),
+          });
+          if (!signRes.ok) throw new Error();
+          const sign = await signRes.json();
+
+          const uploadData = new FormData();
+          uploadData.append("file", photoFile);
+          uploadData.append("api_key", sign.apiKey);
+          uploadData.append("timestamp", String(sign.timestamp));
+          uploadData.append("signature", sign.signature);
+          uploadData.append("folder", sign.folder);
+          uploadData.append("public_id", sign.publicId);
+          uploadData.append("tags", sign.tag);
+
+          const uploadRes = await fetch(`https://api.cloudinary.com/v1_1/${sign.cloudName}/image/upload`, {
+            method: "POST",
+            body: uploadData,
+          });
+          if (!uploadRes.ok) throw new Error();
+          const uploaded = await uploadRes.json();
+
+          await addInviteeMediaAsset(inviteeId, projectId, {
+            cloudinaryPublicId: uploaded.public_id,
+            url: uploaded.secure_url,
+            width: uploaded.width,
+            height: uploaded.height,
+            format: uploaded.format,
+          });
+        } catch {
+          // The invitee itself was already created successfully — per spec,
+          // creating without a photo must stay possible, so a photo hiccup
+          // here shouldn't undo that. Surface it distinctly and keep the
+          // drawer open so the admin sees it (an unqualified onSaved() here
+          // would close the drawer before the message is readable); the
+          // photo can be added afterwards from the invitee's own album view.
+          setError("המוזמן/ת נוצר/ה בהצלחה, אך העלאת התמונה נכשלה — אפשר להוסיף אותה אח\"כ דרך תצוגת האלבום.");
+          setSubmitting(false);
+          router.refresh();
+          return;
+        }
+      }
       onSaved();
       router.refresh();
     } catch (err) {
@@ -927,6 +971,23 @@ function AddInviteeForm({
         <span style={labelStyle}>הערות</span>
         <textarea name="notes" rows={3} style={{ ...inputStyle, resize: "vertical" }} />
       </label>
+      <label>
+        <span style={labelStyle}>תמונה (אופציונלי)</span>
+        {/* Same accept filter as the guest wizard's own photo step
+            (PhotoStep.tsx) and AlbumPageView's admin upload button — no new
+            validation rules introduced. Pre-loads the invitee's photo answer
+            before the link is ever sent; the guest wizard then shows it as
+            already-uploaded and can keep/replace/delete it as usual. */}
+        {/* No `name` attribute — the selected file is tracked in
+            `photoFile` state and uploaded separately (see handleSubmit), not
+            submitted as part of the addInvitee FormData. */}
+        <input
+          type="file"
+          accept="image/*,.heic,.heif"
+          onChange={(e) => setPhotoFile(e.target.files?.[0] ?? null)}
+          style={inputStyle}
+        />
+      </label>
       {noLanguagesAvailable && (
         <p style={{ color: "#b00020", fontSize: 14 }}>לא הוגדרו שפות לפרויקט זה — אי אפשר להוסיף מוזמן. עדכני את שפות הפרויקט בהגדרות.</p>
       )}
@@ -958,6 +1019,13 @@ function EditInviteeForm({
   // Keeps the invitee's current language visible/selectable-away-from even if
   // it's since been disabled for the album (see inviteeLanguageOptions).
   const options = inviteeLanguageOptions(enabledLanguages, language);
+  // Same photo answer as AddInviteeForm/AlbumPageView — seeded here from the
+  // invitee's real Submission.mediaAssets[0] (already loaded on this Invitee
+  // type) so an existing photo shows for keep/replace/delete, matching the
+  // guest wizard's own existingPhotoUrl behavior.
+  const [photo, setPhoto] = useState(invitee.submission?.mediaAssets[0] ?? null);
+  const [photoFile, setPhotoFile] = useState<File | null>(null);
+  const [deletingPhoto, setDeletingPhoto] = useState(false);
 
   async function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
@@ -965,11 +1033,72 @@ function EditInviteeForm({
     setSubmitting(true);
     try {
       await updateInvitee(invitee.id, projectId, new FormData(e.currentTarget));
+      if (photoFile) {
+        try {
+          const signRes = await fetch("/api/admin/invitee-photo-sign", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ inviteeId: invitee.id, projectId }),
+          });
+          if (!signRes.ok) throw new Error();
+          const sign = await signRes.json();
+
+          const uploadData = new FormData();
+          uploadData.append("file", photoFile);
+          uploadData.append("api_key", sign.apiKey);
+          uploadData.append("timestamp", String(sign.timestamp));
+          uploadData.append("signature", sign.signature);
+          uploadData.append("folder", sign.folder);
+          uploadData.append("public_id", sign.publicId);
+          uploadData.append("tags", sign.tag);
+
+          const uploadRes = await fetch(`https://api.cloudinary.com/v1_1/${sign.cloudName}/image/upload`, {
+            method: "POST",
+            body: uploadData,
+          });
+          if (!uploadRes.ok) throw new Error();
+          const uploaded = await uploadRes.json();
+
+          // Replace, not accumulate — same rule as everywhere else a photo
+          // answer is set (AlbumPageView, the real guest submission route).
+          if (photo) {
+            await deleteMediaAsset(photo.id, projectId);
+          }
+          await addInviteeMediaAsset(invitee.id, projectId, {
+            cloudinaryPublicId: uploaded.public_id,
+            url: uploaded.secure_url,
+            width: uploaded.width,
+            height: uploaded.height,
+            format: uploaded.format,
+          });
+        } catch {
+          setError("הפרטים נשמרו, אך העלאת התמונה נכשלה — אפשר לנסות שוב.");
+          setSubmitting(false);
+          router.refresh();
+          return;
+        }
+      }
       onSaved();
       router.refresh();
     } catch (err) {
       setError(err instanceof Error ? err.message : "משהו השתבש, נסי שוב");
       setSubmitting(false);
+    }
+  }
+
+  async function handleDeletePhoto() {
+    if (!photo) return;
+    if (!window.confirm("למחוק את התמונה הזו?")) return;
+    setDeletingPhoto(true);
+    setError(null);
+    try {
+      await deleteMediaAsset(photo.id, projectId);
+      setPhoto(null);
+      router.refresh();
+    } catch {
+      setError("מחיקת התמונה נכשלה, נסי שוב");
+    } finally {
+      setDeletingPhoto(false);
     }
   }
 
@@ -1011,6 +1140,34 @@ function EditInviteeForm({
         <span style={labelStyle}>הערות</span>
         <textarea name="notes" defaultValue={invitee.notes ?? ""} rows={3} style={{ ...inputStyle, resize: "vertical" }} />
       </label>
+      <div>
+        <span style={labelStyle}>תמונה (אופציונלי)</span>
+        {photo && !photoFile ? (
+          <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+            <img src={photo.url} alt="" style={{ width: 48, height: 48, borderRadius: 8, objectFit: "cover" }} />
+            <button type="button" onClick={handleDeletePhoto} disabled={deletingPhoto} style={photoActionButtonStyle}>
+              {deletingPhoto ? "מוחקת..." : "מחיקת תמונה"}
+            </button>
+            <label style={{ ...photoActionButtonStyle, cursor: "pointer" }}>
+              החלפת תמונה
+              <input
+                type="file"
+                accept="image/*,.heic,.heif"
+                onChange={(e) => setPhotoFile(e.target.files?.[0] ?? null)}
+                style={{ display: "none" }}
+              />
+            </label>
+          </div>
+        ) : (
+          <input
+            type="file"
+            accept="image/*,.heic,.heif"
+            onChange={(e) => setPhotoFile(e.target.files?.[0] ?? null)}
+            style={inputStyle}
+          />
+        )}
+        {photoFile && <p style={{ fontSize: 12, color: "#666", margin: "4px 0 0" }}>ייטען בעת השמירה: {photoFile.name}</p>}
+      </div>
       {error && <p style={{ color: "#b00020", fontSize: 14 }}>{error}</p>}
       <button type="submit" disabled={submitting} style={buttonStyle}>
         {submitting ? "שומר..." : "שמירה"}
@@ -1025,6 +1182,15 @@ const cardStyle: React.CSSProperties = {
   borderRadius: 16,
   padding: 20,
   boxShadow: "0 1px 3px rgba(0,0,0,0.04)",
+  // Fills the flex:1 wrapper the page gives it (stretches the frame down to
+  // the viewport bottom instead of shrink-wrapping the table) — minHeight:0
+  // lets it shrink below the table's natural size so the table's own
+  // overflow-x wrapper below can scroll internally instead of the card
+  // growing past the viewport.
+  flex: 1,
+  display: "flex",
+  flexDirection: "column",
+  minHeight: 0,
 };
 
 const headerRowStyle: React.CSSProperties = {
@@ -1128,32 +1294,11 @@ function LinkIcon() {
   );
 }
 
-function CheckIcon() {
-  return (
-    <svg width="15" height="15" viewBox="0 0 20 20" fill="none">
-      <path d="M4 10.3 8 14l8-8.6" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" />
-    </svg>
-  );
-}
-
 function EyeIcon() {
   return (
     <svg width="15" height="15" viewBox="0 0 20 20" fill="none">
       <path d="M1.5 10S4.5 4.5 10 4.5 18.5 10 18.5 10 15.5 15.5 10 15.5 1.5 10 1.5 10Z" stroke="currentColor" strokeWidth="1.3" strokeLinejoin="round" />
       <circle cx="10" cy="10" r="2.3" stroke="currentColor" strokeWidth="1.3" />
-    </svg>
-  );
-}
-
-function PencilIcon() {
-  return (
-    <svg width="15" height="15" viewBox="0 0 20 20" fill="none">
-      <path
-        d="M13.3 3.8a1.6 1.6 0 0 1 2.3 0l.6.6a1.6 1.6 0 0 1 0 2.3L6.4 16.5l-3.2.7.7-3.2 9.4-9.4Z"
-        stroke="currentColor"
-        strokeWidth="1.3"
-        strokeLinejoin="round"
-      />
     </svg>
   );
 }
@@ -1239,6 +1384,20 @@ const buttonStyle: React.CSSProperties = {
   borderRadius: 6,
   cursor: "pointer",
   width: "fit-content",
+};
+
+// Small bordered button for the photo field's "delete"/"replace" actions in
+// EditInviteeForm — same weight as buttonStyle below but lighter, since these
+// are secondary to the form's main "שמירה" action.
+const photoActionButtonStyle: React.CSSProperties = {
+  padding: "6px 12px",
+  fontSize: 13,
+  fontWeight: 600,
+  color: "#333",
+  background: "white",
+  border: "1px solid #ccc",
+  borderRadius: 6,
+  cursor: "pointer",
 };
 
 const languageToggleBtnStyle: React.CSSProperties = {

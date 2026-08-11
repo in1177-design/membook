@@ -238,6 +238,10 @@ export const WIZARD_EXTRA_STYLES = `
      equal width, side by side (@container below) — see that block for the
      row-reverse/JSX-order note. */
   .sub-step-bottom { display: flex; flex-direction: column; align-items: stretch; gap: 10px; }
+  /* The buttons' own row — separate from .sub-step-bottom so beforeButtons/
+     error always stack above the buttons, at every width; only this row
+     itself switches to row-reverse at desktop (@container below). */
+  .sub-step-buttons-row { display: flex; flex-direction: column; align-items: stretch; gap: 10px; }
   .sub-step-continue { display: flex; align-items: center; justify-content: center; gap: 8px; width: 100%; padding: 13px 16px; border-radius: 10px; }
   .sub-step-back {
     /* 12px (not 13px) vertical padding — compensates for the 1px border on
@@ -257,28 +261,23 @@ export const WIZARD_EXTRA_STYLES = `
      is meant to look like a muted display field, not an inviting one). */
   .sub-text-input { width: 100%; padding: 10px 12px; font-size: 18px; border: 1px solid #e6e4e0; border-radius: 8px; box-sizing: border-box; font-family: inherit; background-color: #fff; }
 
-  /* Step 4 (photo) — subtext under the heading, an inline hint box with a
-     heart icon, an "or" divider, an outlined camera button, format/size
-     hints, and the empty drop-zone's backdrop photo + "add" circle. */
+  /* Step 4 (photo) — subtext under the heading, an "or" divider, an
+     outlined camera button, a single plain hint line above the nav
+     buttons, and the empty drop-zone's backdrop photo + "add" circle. */
   .sub-photo-subtext { font-size: 16px; color: #55524c; line-height: 1.6; margin: 0 0 16px; text-align: center; }
   .sub-photo-subtext-editable { width: 100%; resize: vertical; border: 1px solid #f0c419; background: #fdf6d8; border-radius: 8px; padding: 8px 10px; box-sizing: border-box; font-family: inherit; }
   .sub-photo-subtext-editable:focus { outline: 2px solid #f0c419; }
-  /* Desktop-only (see @container below) — mobile shows the inline drop-zone
-     and footer hint card instead. */
-  .sub-photo-hint-box { display: none; align-items: flex-start; justify-content: space-between; gap: 12px; padding: 14px 16px; border-radius: 12px; background: #f1effb; margin-bottom: 18px; }
-  .sub-photo-hint-line1 { font-size: 16px; font-weight: 700; color: #3a3a3a; margin: 0 0 4px; }
-  .sub-photo-hint-line2 { font-size: 16px; color: #767676; margin: 0; line-height: 1.5; }
   .sub-photo-or-row { display: flex; align-items: center; gap: 12px; margin: 4px 0 18px; }
   .sub-photo-or-row hr { flex: 1; border: none; border-top: 1px solid #e6e4e0; margin: 0; }
   .sub-photo-or-row span { font-size: 12px; color: #9a9a9a; }
   .sub-photo-camera-btn { display: flex; align-items: center; justify-content: center; gap: 8px; width: 100%; padding: 13px 16px; font-size: 14px; font-weight: 700; color: #5838b8; background: white; border: 1.5px solid #5838b8; border-radius: 10px; cursor: pointer; margin-bottom: 14px; }
-  /* Desktop-only (see @container below) — folded into the mobile drop-zone
-     below instead. */
-  .sub-photo-format-hint { display: none; font-size: 16px; color: #9a9a9a; text-align: center; margin: 2px 0; }
 
-  /* Mobile-only inline drop-zone (real file picker, no camera capture) —
-     the actual "choose from device" affordance on mobile, since
-     PhotoDropPanel's own panel stays hidden there. Hidden on desktop below. */
+  /* The drop-zone (real file picker, no camera capture) — the actual
+     "choose from device" affordance, shown at every width now (previously
+     mobile-only; PhotoDropPanel's own bigger panel still stays hidden on
+     mobile). Format/size stack as two lines here by default; the @container
+     rule below turns them into one row with a "|" separator at desktop
+     widths, where there's room. */
   .sub-photo-inline-drop {
     display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 6px;
     text-align: center; min-height: 190px; padding: 24px 20px; margin-bottom: 18px; cursor: pointer;
@@ -286,8 +285,11 @@ export const WIZARD_EXTRA_STYLES = `
   }
   .sub-photo-inline-drop-title { font-size: 15px; font-weight: 700; color: #5838b8; margin-top: 4px; }
   .sub-photo-inline-drop-subtitle { font-size: 13px; color: #8a8883; }
+  .sub-photo-inline-drop-resolution { font-size: 14px; font-weight: 700; color: #5838b8; max-width: 320px; margin: 4px 0 0; text-wrap: balance; }
   .sub-photo-inline-drop-divider { width: 100%; max-width: 220px; border: none; border-top: 1px solid #e2ddf5; margin: 10px 0 6px; }
+  .sub-photo-inline-drop-hints { display: flex; flex-direction: column; align-items: center; gap: 2px; }
   .sub-photo-inline-drop-hint { font-size: 12px; color: #9a9a9a; }
+  .sub-photo-inline-drop-hint-sep { display: none; font-size: 12px; color: #c9c7c2; }
   /* Selected-photo state: a square preview (width-driven via aspect-ratio,
      not the empty prompt's min-height) with a "change photo" badge pinned
      to its bottom-left corner. */
@@ -295,12 +297,10 @@ export const WIZARD_EXTRA_STYLES = `
   .sub-photo-inline-drop-img { display: block; width: 100%; height: 100%; object-fit: cover; position: absolute; inset: 0; }
   .sub-photo-inline-drop-change { position: absolute; left: 10px; bottom: 10px; z-index: 1; font-size: 12px; font-weight: 600; color: white; background: rgba(0,0,0,0.55); padding: 6px 14px; border-radius: 999px; }
 
-  /* Mobile-only hint card rendered inside the fixed bottom block (via
-     StepBottomNav's beforeButtons) — the desktop equivalent is the original
-     heart-icon .sub-photo-hint-box above, never shown together. */
-  .sub-photo-hint-card { display: flex; flex-direction: column; gap: 4px; padding: 14px 16px; border-radius: 12px; border: 1px solid #ece9e4; background: #fbfaf8; margin-bottom: 12px; }
-  .sub-photo-hint-card .sub-photo-hint-line1 { margin: 0; }
-  .sub-photo-hint-card .sub-photo-hint-line2 { margin: 0; }
+  /* Plain hint line (heart icon + text, no box) rendered inside the fixed
+     bottom block via StepBottomNav's beforeButtons — same at every width. */
+  .sub-photo-hint-line { display: flex; align-items: center; justify-content: center; gap: 8px; margin: 0 0 12px; }
+  .sub-photo-hint-line p { font-size: 14px; color: #767676; margin: 0; line-height: 1.5; }
 
   .sub-photo-drop-backdrop { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; opacity: 0.4; }
   .sub-photo-add-circle { position: relative; z-index: 1; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 8px; width: 150px; height: 150px; border-radius: 50%; background: rgba(255,255,255,0.92); box-shadow: 0 6px 24px rgba(0,0,0,0.1); }
@@ -336,7 +336,7 @@ export const WIZARD_EXTRA_STYLES = `
        row-reverse (not row) so the JSX order [continue, back] still lands
        continue/primary opposite back, matching Step 5's [back, send] JSX
        order under both RTL and LTR. */
-    .sub-step-bottom { flex-direction: row-reverse; }
+    .sub-step-buttons-row { flex-direction: row-reverse; }
     .sub-step-continue { width: auto; flex: 1; padding: 13px 16px; }
     .sub-step-back {
       flex: 1; border-radius: 10px; border-color: #d8d6d1; background: white; color: #333;
@@ -348,12 +348,14 @@ export const WIZARD_EXTRA_STYLES = `
        left in LTR) at desktop — mobile default above centers all of these. */
     .sub-eyebrow, .sub-heading, .sub-opening-text, .sub-photo-subtext,
     .sub-intro-guidance-heading, .sub-intro-guidance-closing { text-align: start; }
-    /* Step 4: back to the original heart-icon hint box + format hints,
-       mobile's inline drop-zone and footer hint card are mobile-only. */
-    .sub-photo-hint-box { display: flex; }
-    .sub-photo-format-hint { display: block; }
-    .sub-photo-inline-drop { display: none; }
-    .sub-photo-hint-card { display: none; }
+    /* Step 4: format/size join into one row with a "|" separator at desktop
+       widths — stacked as two plain lines below this. */
+    .sub-photo-inline-drop-hints { flex-direction: row; gap: 8px; }
+    .sub-photo-inline-drop-hint-sep { display: inline; }
+    /* Step 4: no camera capture on desktop, so the "or take a photo now"
+       button (and its "או" divider, which only makes sense as a lead-in to
+       that button) both drop out — the drop-zone above is the only option. */
+    .sub-photo-or-row, .sub-photo-camera-btn { display: none; }
   }
 
   /* PICK_ONE's "switching question" confirm — a real styled dialog instead
@@ -430,11 +432,17 @@ export default function SubmissionWizard({
   lang?: Lang;
 }) {
   const initialLang: Lang = initialLanguage === "RU" || initialLanguage === "EN" ? initialLanguage : "HE";
+  // Deliberately excludes existingPhotoUrl — a real guest can only ever reach
+  // the photo step *after* blessing/question progress (the steps are linear),
+  // so photo-only progress with nothing else is never something a returning
+  // guest could have produced themselves; it only happens when an admin
+  // pre-loads a photo (AddInviteeForm/EditInviteeForm/AlbumPageView) before
+  // the guest has ever opened the link. Counting it here would skip that
+  // guest straight past the intro screen on their very first visit.
   const hasAnyProgress =
     questions.some((q) => q.existingAnswer.trim().length > 0) ||
     Boolean(existingDateLocation?.trim()) ||
-    Boolean(existingBlessingText?.trim()) ||
-    Boolean(existingPhotoUrl);
+    Boolean(existingBlessingText?.trim());
   const chosenQuestionId = questions.find((q) => q.existingAnswer.trim().length > 0)?.id ?? null;
   const hasBlessingProgress = Boolean(existingBlessingText?.trim());
   const hasPhotoProgress = Boolean(existingPhotoUrl);
@@ -444,7 +452,10 @@ export default function SubmissionWizard({
     // lands on the summary (not the one-time "done" screen) so they can
     // review and, if they want, edit before re-sending.
     if (isCompleted) return "preview";
-    if (!hasBlessingProgress && !chosenQuestionId && !hasPhotoProgress) return "intro";
+    // Same "photo alone doesn't count as progress" reasoning as
+    // hasAnyProgress above — only real blessing/question progress should
+    // skip the intro screen.
+    if (!hasBlessingProgress && !chosenQuestionId) return "intro";
     if (!hasBlessingProgress) return "blessing";
     if (!chosenQuestionId) return "chooseQuestion";
     if (!hasPhotoProgress) return "photo";

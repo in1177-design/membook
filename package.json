@@ -2,7 +2,7 @@
   "name": "book-mem",
   "version": "0.1.0",
   "private": true,
-  "description": "ספר זיכרון — כלי איסוף חומרים לאלבומי ברכה (פיילוט)",
+  "description": "מילים ותמונות באהבה מכולנו — כלי איסוף חומרים לאלבומי ברכה (פיילוט)",
   "scripts": {
     "dev": "next dev",
     "build": "next build",

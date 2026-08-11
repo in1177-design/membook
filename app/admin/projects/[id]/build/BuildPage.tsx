@@ -423,30 +423,55 @@ export default function BuildPage({ project }: { project: ProjectData }) {
               isAdminPreview
             />
           ) : activeStep === "photo" ? (
-            // Same idea as "preview" above: no separate raw-textarea Edit
-            // screen — the real PhotoStepForm design renders identically in
-            // both modes, with its subtext directly editable in place
-            // (styled like the other "genuinely open for writing" fields)
-            // instead of a disconnected admin-only form. Paired with
-            // PhotoDropPanel below instead of this outer shell's usual
-            // trailing PhotoPage — see the comment down there.
-            <PhotoStepForm
-              lang={previewLang}
-              photoRequestText={mode === "edit" ? photoRequestText[previewLang] : photoRequestTextFor(previewLang)}
-              photoRequestTextPlaceholder={photoRequestTextFor(previewLang)}
-              onPhotoRequestTextChange={
-                mode === "edit" ? (value) => setPhotoRequestText((prev) => ({ ...prev, [previewLang]: value })) : undefined
-              }
-              onPhotoRequestTextBlur={mode === "edit" ? handleBlur : undefined}
-              onPhotoChange={() => {}}
-              onBack={() => {}}
-              onNext={() => {}}
-              isSaving={false}
-              error={null}
-              stepNumber={4}
-              stepTotal={STEP_DISPLAY_TOTAL}
-              photoPreviewUrl={null}
-            />
+            mode === "edit" ? (
+              // Same per-language column grid as step 2 (blessing) — lets
+              // the admin edit the photo-request text for every active
+              // project language, not just whichever one previewLang
+              // happens to be (previewLang only has a switcher in Preview
+              // mode, so Edit mode had no way to reach RU/EN here before).
+              <div
+                className="sub-page sub-page-form"
+                style={{ display: "grid", gridTemplateColumns: `repeat(${activeLangs.length}, 1fr)`, gap: 24, padding: "36px 32px", overflowY: "auto" }}
+              >
+                {activeLangs.map((lang) => (
+                  <div key={lang}>
+                    <p className="build-lang-column-heading">תמונה · {lang}</p>
+                    <p className="build-field-caption" style={{ marginTop: 0 }}>
+                      טקסט בקשת תמונה:
+                    </p>
+                    <div className="build-field-box">
+                      <textarea
+                        rows={4}
+                        value={photoRequestText[lang]}
+                        placeholder="לחצי כדי להוסיף טקסט..."
+                        onChange={(e) => setPhotoRequestText((prev) => ({ ...prev, [lang]: e.target.value }))}
+                        onBlur={handleBlur}
+                        style={{ direction: lang === "HE" ? "rtl" : "ltr", textAlign: lang === "HE" ? "right" : "left" }}
+                      />
+                    </div>
+                  </div>
+                ))}
+              </div>
+            ) : (
+              // Preview mode: the real PhotoStepForm design, read-only,
+              // reflecting whichever language is selected via the Preview
+              // language toggle. Paired with PhotoDropPanel below instead
+              // of this outer shell's usual trailing PhotoPage — see the
+              // comment down there.
+              <PhotoStepForm
+                lang={previewLang}
+                photoRequestText={photoRequestTextFor(previewLang)}
+                photoRequestTextPlaceholder={photoRequestTextFor(previewLang)}
+                onPhotoChange={() => {}}
+                onBack={() => {}}
+                onNext={() => {}}
+                isSaving={false}
+                error={null}
+                stepNumber={4}
+                stepTotal={STEP_DISPLAY_TOTAL}
+                photoPreviewUrl={null}
+              />
+            )
           ) : activeStep === "done" ? (
             // Same idea as "preview"/"photo" above: fixed, non-editable copy
             // (nothing guest- or project-specific to show on a "your

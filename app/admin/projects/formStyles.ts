@@ -103,3 +103,15 @@ export const checkboxLabelStyle: React.CSSProperties = {
   color: colors.textSecondary,
   cursor: "pointer",
 };
+
+// Matches the "מוזמנים" table's card on the project detail page
+// (InviteesTable.tsx's cardStyle) — same white box, border, radius, padding
+// and shadow, so a page with several of these side by side (e.g. project
+// settings) reads as the same visual system.
+export const cardStyle: React.CSSProperties = {
+  background: "white",
+  border: "1px solid #eee",
+  borderRadius: 16,
+  padding: 20,
+  boxShadow: "0 1px 3px rgba(0,0,0,0.04)",
+};

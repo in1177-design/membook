@@ -10,11 +10,6 @@ const STEP_TITLE: Record<Lang, string> = {
   RU: "Теперь добавим фотографию",
   EN: "Now add a photo",
 };
-const HINT_LINE_1: Record<Lang, string> = {
-  HE: "אפשר להוסיף תמונה גם בהמשך.",
-  RU: "Фотографию можно добавить и позже.",
-  EN: "You can also add a photo later.",
-};
 const HINT_LINE_2: Record<Lang, string> = {
   HE: "לא מצאתם עכשיו את התמונה המתאימה? תוכלו להוסיף אותה גם אחרי כן.",
   RU: "Не нашли подходящую фотографию сейчас? Можно продолжить и добавить её потом.",
@@ -46,6 +41,11 @@ const SIZE_HINT: Record<Lang, string> = {
   HE: "גודל מומלץ עד 10MB",
   RU: "Рекомендуемый размер: до 10 МБ",
   EN: "Recommended size: up to 10MB",
+};
+const RESOLUTION_HINT: Record<Lang, string> = {
+  HE: "כדי שהתמונה תיראה מצוין גם באלבום המודפס, מומלץ להעלות את הקובץ המקורי וברזולוציה הגבוהה ביותר שיש לכם.",
+  RU: "Чтобы фото отлично смотрелось и в печатном альбоме, рекомендуем загрузить оригинальный файл в максимально высоком разрешении.",
+  EN: "For the best print quality in the album, we recommend uploading the original file at the highest resolution you have.",
 };
 const CONTINUE_LABEL: Record<Lang, string> = {
   HE: "המשך לשלב הבא",
@@ -165,13 +165,13 @@ export function PhotoStepForm({
           <p className="sub-photo-subtext">{photoRequestText}</p>
         )}
 
-        {/* Mobile-only real file picker (no camera capture) — the actual
-            "choose from device" affordance; PhotoDropPanel's own panel stays
-            hidden on mobile (.sub-page-photo{display:none}), so without this
-            mobile guests previously had no way to pick an existing photo.
-            Kept in this exact DOM position (right before the desktop-only
-            hint box below) so hiding/showing each via CSS reproduces
-            desktop's original order untouched — see WIZARD_EXTRA_STYLES. */}
+        {/* The real file picker (no camera capture) — the actual "choose
+            from device" affordance. Shown at both mobile and desktop widths
+            now (previously mobile-only, with a separate desktop-only hint
+            box/format-hint lines below); PhotoDropPanel's own bigger panel
+            still stays hidden on mobile. Carries its own format/size/
+            resolution copy so it's fully self-contained — see
+            WIZARD_EXTRA_STYLES for the row-vs-stacked format/size layout. */}
         <label className={`sub-photo-inline-drop${photoPreviewUrl ? " has-photo" : ""}`}>
           {photoPreviewUrl ? (
             <>
@@ -190,9 +190,13 @@ export function PhotoStepForm({
               <PhotoAddIcon />
               <span className="sub-photo-inline-drop-title">{DROP_TITLE[lang]}</span>
               <span className="sub-photo-inline-drop-subtitle">{DROP_SUBTITLE[lang]}</span>
+              <span className="sub-photo-inline-drop-resolution">{RESOLUTION_HINT[lang]}</span>
               <hr className="sub-photo-inline-drop-divider" />
-              <span className="sub-photo-inline-drop-hint">{FORMAT_HINT[lang]}</span>
-              <span className="sub-photo-inline-drop-hint">{SIZE_HINT[lang]}</span>
+              <span className="sub-photo-inline-drop-hints">
+                <span className="sub-photo-inline-drop-hint">{FORMAT_HINT[lang]}</span>
+                <span className="sub-photo-inline-drop-hint-sep">|</span>
+                <span className="sub-photo-inline-drop-hint">{SIZE_HINT[lang]}</span>
+              </span>
             </>
           )}
           <input
@@ -202,16 +206,6 @@ export function PhotoStepForm({
             style={{ display: "none" }}
           />
         </label>
-
-        {/* Desktop-only from here on (hidden on mobile — its content now
-            lives inside the drop-zone above / the footer hint card below). */}
-        <div className="sub-photo-hint-box">
-          <div>
-            <p className="sub-photo-hint-line1">{HINT_LINE_1[lang]}</p>
-            <p className="sub-photo-hint-line2">{HINT_LINE_2[lang]}</p>
-          </div>
-          <HeartIcon />
-        </div>
 
         <div className="sub-photo-or-row">
           <hr />
@@ -231,9 +225,6 @@ export function PhotoStepForm({
           onChange={(e) => onPhotoChange(e.target.files?.[0] ?? null)}
           style={{ display: "none" }}
         />
-
-        <p className="sub-photo-format-hint">{FORMAT_HINT[lang]}</p>
-        <p className="sub-photo-format-hint">{SIZE_HINT[lang]}</p>
       </div>
 
       <StepBottomNav
@@ -245,12 +236,11 @@ export function PhotoStepForm({
         isSaving={isSaving}
         error={error}
         beforeButtons={
-          // Mobile-only (CSS-hidden on desktop) — matches the user's
-          // annotated screenshot: this hint card is part of the fixed
-          // bottom block together with the continue/back buttons.
-          <div className="sub-photo-hint-card">
-            <p className="sub-photo-hint-line1">{HINT_LINE_1[lang]}</p>
-            <p className="sub-photo-hint-line2">{HINT_LINE_2[lang]}</p>
+          // One plain line (heart icon + text, no box) right above the nav
+          // buttons — same at both mobile and desktop widths now.
+          <div className="sub-photo-hint-line">
+            <HeartIcon />
+            <p>{HINT_LINE_2[lang]}</p>
           </div>
         }
       />

@@ -9,7 +9,7 @@ const assistant = Assistant({
 });
 
 export const metadata: Metadata = {
-  title: "ספר זיכרון",
+  title: "מילים ותמונות באהבה מכולנו",
   description: "כלי איסוף חומרים לאלבום ברכה",
 };
 

@@ -424,7 +424,11 @@ export async function addInvitee(projectId: string, formData: FormData) {
   await assertLanguageEnabled(projectId, language);
   const notes = String(formData.get("notes") ?? "").trim() || null;
 
-  await prisma.invitee.create({
+  // Returns the new invitee's id — needed by the admin "add invitee" form to
+  // optionally attach a photo right after creation (via the existing
+  // addInviteeMediaAsset action, same as AlbumPageView's upload flow), since
+  // that requires a real inviteeId to upsert the Submission onto.
+  const created = await prisma.invitee.create({
     data: {
       projectId,
       name,
@@ -442,6 +446,7 @@ export async function addInvitee(projectId: string, formData: FormData) {
   });
 
   revalidatePath(`/admin/projects/${projectId}`);
+  return { id: created.id };
 }
 
 export async function deleteInvitee(inviteeId: string, projectId: string) {

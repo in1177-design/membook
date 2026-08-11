@@ -53,19 +53,29 @@ export default function StepBottomNav({
     <div className="sub-page-form-bottom sub-step-bottom">
       {beforeButtons}
       {error && <p style={{ color: "#b00020", marginBottom: 12, fontSize: 13 }}>{error}</p>}
-      <button
-        type="button"
-        className="sub-btn sub-btn-send sub-step-continue"
-        disabled={continueDisabled || isSaving}
-        onClick={onContinue}
-      >
-        <span>{isSaving ? "..." : continueLabel}</span>
-        <ChevronIcon lang={lang} forward color="white" />
-      </button>
-      <button type="button" className="sub-step-back" onClick={onBack} disabled={isSaving}>
-        <ChevronIcon lang={lang} color="#3b57d6" />
-        <span>{backLabel}</span>
-      </button>
+      {/* Buttons live in their own row so beforeButtons/error always stack
+          above them, at every width — only this inner row switches to
+          row-reverse at desktop (see @container in WIZARD_EXTRA_STYLES).
+          Previously the row-reverse was on the outer .sub-step-bottom
+          itself, which was harmless while beforeButtons was mobile-only,
+          but once a beforeButtons node (e.g. PhotoStep's hint line) started
+          rendering at every width, it got pulled into the same row as the
+          buttons instead of sitting above them. */}
+      <div className="sub-step-buttons-row">
+        <button
+          type="button"
+          className="sub-btn sub-btn-send sub-step-continue"
+          disabled={continueDisabled || isSaving}
+          onClick={onContinue}
+        >
+          <span>{isSaving ? "..." : continueLabel}</span>
+          <ChevronIcon lang={lang} forward color="white" />
+        </button>
+        <button type="button" className="sub-step-back" onClick={onBack} disabled={isSaving}>
+          <ChevronIcon lang={lang} color="#3b57d6" />
+          <span>{backLabel}</span>
+        </button>
+      </div>
     </div>
   );
 }

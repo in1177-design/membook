@@ -32,7 +32,7 @@ export default async function ProjectsPage() {
 
   return (
     <main style={{ maxWidth: 900, margin: "40px auto", padding: 24 }}>
-      <h1 style={{ fontSize: 24, marginBottom: 4 }}>ספר זיכרון</h1>
+      <h1 style={{ fontSize: 24, marginBottom: 4 }}>מילים ותמונות באהבה מכולנו</h1>
       <p style={{ color: "#666", marginBottom: 24, fontSize: 14 }}>כל פרויקטי איסוף החומרים שלך במקום אחד</p>
 
       <ProjectsGrid
