@@ -178,6 +178,72 @@ function statusOf(invitee: Invitee): keyof typeof STATUS_STYLE {
   return "pending";
 }
 
+// Sortable columns in the invitees table (search box + column-header sort,
+// per product decision). Least-progressed → most-progressed, matching the
+// guest journey — same ordering rationale as STATUS_STYLE above.
+type SortKey = "name" | "attending" | "status" | "lastViewed";
+const STATUS_RANK: Record<keyof typeof STATUS_STYLE, number> = { pending: 0, sent: 1, viewed: 2, inProgress: 3, submitted: 4 };
+// Confirmed "כן" first (most actionable for the admin — e.g. seating/catering
+// counts), then "אולי", then "לא", unset last.
+const ATTENDING_RANK: Record<string, number> = { YES: 0, MAYBE: 1, NO: 2 };
+
+function compareBy(key: SortKey, a: Invitee, b: Invitee): number {
+  switch (key) {
+    case "name":
+      return a.name.localeCompare(b.name, "he");
+    case "attending":
+      return (ATTENDING_RANK[a.attending ?? ""] ?? 3) - (ATTENDING_RANK[b.attending ?? ""] ?? 3);
+    case "status":
+      return STATUS_RANK[statusOf(a)] - STATUS_RANK[statusOf(b)];
+    case "lastViewed": {
+      // Nulls (never viewed) always sort last, regardless of direction —
+      // "never opened" isn't meaningfully before/after a real date.
+      const av = a.inviteLink?.lastViewedAt;
+      const bv = b.inviteLink?.lastViewedAt;
+      if (!av && !bv) return 0;
+      if (!av) return 1;
+      if (!bv) return -1;
+      return av.getTime() - bv.getTime();
+    }
+  }
+}
+
+function SortableTh({
+  sortKey,
+  label,
+  sort,
+  onSort,
+}: {
+  sortKey: SortKey;
+  label: string;
+  sort: { key: SortKey; dir: "asc" | "desc" } | null;
+  onSort: (key: SortKey) => void;
+}) {
+  const active = sort?.key === sortKey;
+  return (
+    <th style={thStyle}>
+      <button
+        type="button"
+        onClick={() => onSort(sortKey)}
+        style={{
+          display: "inline-flex",
+          alignItems: "center",
+          gap: 4,
+          background: "none",
+          border: "none",
+          padding: 0,
+          font: "inherit",
+          color: active ? "#333" : "inherit",
+          cursor: "pointer",
+        }}
+      >
+        {label}
+        <span style={{ fontSize: 10, opacity: active ? 1 : 0.35 }}>{active && sort.dir === "desc" ? "▼" : "▲"}</span>
+      </button>
+    </th>
+  );
+}
+
 export default function InviteesTable({ projectId, baseUrl, invitees, questions, defaultLanguage, enabledLanguages, celebrantNames, messageTemplates }: Props) {
   // Defensive fallback only — the checkbox UI always keeps HE enabled, so
   // this should never actually be empty in practice.
@@ -186,11 +252,39 @@ export default function InviteesTable({ projectId, baseUrl, invitees, questions,
   const [showImport, setShowImport] = useState(false);
   const [editingInvitee, setEditingInvitee] = useState<Invitee | null>(null);
   const [previewingInvitee, setPreviewingInvitee] = useState<Invitee | null>(null);
+  const [searchQuery, setSearchQuery] = useState("");
+  const [sort, setSort] = useState<{ key: SortKey; dir: "asc" | "desc" } | null>(null);
+
+  // Name-only substring match (case-insensitive) — matches invitee.name as
+  // typed, deliberately not name2/relation/phone/etc. per product decision.
+  const query = searchQuery.trim().toLowerCase();
+  const searchedInvitees = query ? invitees.filter((i) => i.name.toLowerCase().includes(query)) : invitees;
+
+  // Sorting is applied on top of the search results, not the full list —
+  // clicking a column header sorts whatever's currently visible.
+  const visibleInvitees = sort ? [...searchedInvitees].sort((a, b) => sort.dir === "asc" ? compareBy(sort.key, a, b) : compareBy(sort.key, b, a)) : searchedInvitees;
+
+  function toggleSort(key: SortKey) {
+    setSort((prev) => {
+      if (!prev || prev.key !== key) return { key, dir: "asc" };
+      if (prev.dir === "asc") return { key, dir: "desc" };
+      return null; // third click on the same column clears back to the default (creation) order
+    });
+  }
 
   return (
     <div style={cardStyle}>
       <div style={headerRowStyle}>
-        <h2 style={{ fontSize: 17, fontWeight: 600, margin: 0 }}>מוזמנים ({invitees.length})</h2>
+        <div style={{ display: "flex", alignItems: "center", gap: 14 }}>
+          <h2 style={{ fontSize: 17, fontWeight: 600, margin: 0 }}>מוזמנים ({visibleInvitees.length})</h2>
+          <input
+            type="text"
+            value={searchQuery}
+            onChange={(e) => setSearchQuery(e.target.value)}
+            placeholder="חיפוש לפי שם..."
+            style={searchInputStyle}
+          />
+        </div>
         <AddInviteeMenu onAddSingle={() => setShowAdd(true)} onImportFromSheet={() => setShowImport(true)} />
       </div>
 
@@ -198,20 +292,27 @@ export default function InviteesTable({ projectId, baseUrl, invitees, questions,
         <table style={{ width: "100%", minWidth: 900, borderCollapse: "collapse", fontSize: 14 }}>
           <thead>
             <tr>
-              <th style={thStyle}>שם מלא</th>
+              <SortableTh sortKey="name" label="שם מלא" sort={sort} onSort={toggleSort} />
               <th style={thStyle}>קרבה</th>
               <th style={thStyle}>שפה</th>
-              <th style={thStyle}>מגיעה לאירוע</th>
-              <th style={thStyle}>סטטוס</th>
+              <SortableTh sortKey="attending" label="מגיעה לאירוע" sort={sort} onSort={toggleSort} />
+              <SortableTh sortKey="status" label="סטטוס" sort={sort} onSort={toggleSort} />
               <th style={thStyle}>התקדמות</th>
               <th style={thStyle}>תמונות</th>
               <th style={thStyle}>כניסה ראשונה</th>
-              <th style={thStyle}>כניסה אחרונה</th>
+              <SortableTh sortKey="lastViewed" label="כניסה אחרונה" sort={sort} onSort={toggleSort} />
               <th style={thStyle}></th>
             </tr>
           </thead>
           <tbody>
-            {invitees.map((invitee) => {
+            {visibleInvitees.length === 0 && query ? (
+              <tr>
+                <td colSpan={10} style={{ ...tdStyle, textAlign: "center", color: "#999", padding: "24px 10px" }}>
+                  לא נמצאו מוזמנים בשם &quot;{searchQuery.trim()}&quot;
+                </td>
+              </tr>
+            ) : null}
+            {visibleInvitees.map((invitee) => {
               const link = invitee.inviteLink;
               const status = STATUS_STYLE[statusOf(invitee)];
               const relTag = invitee.relation ? tagStyle(invitee.relation) : null;
@@ -1359,6 +1460,14 @@ const inputStyle: React.CSSProperties = {
   border: "1px solid #ccc",
   borderRadius: 6,
   width: "100%",
+};
+
+const searchInputStyle: React.CSSProperties = {
+  padding: "6px 12px",
+  fontSize: 13,
+  border: "1px solid #ddd",
+  borderRadius: 999,
+  width: 200,
 };
 
 const labelStyle: React.CSSProperties = {
