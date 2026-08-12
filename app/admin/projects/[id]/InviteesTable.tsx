@@ -274,6 +274,10 @@ export default function InviteesTable({ projectId, baseUrl, invitees, questions,
 
   return (
     <div style={cardStyle}>
+      {/* Subtle row hover — inline <style> since a plain :hover state can't
+          be expressed with the inline style objects used everywhere else
+          in this file. */}
+      <style>{`.invitee-row:hover { background: #fafafa; }`}</style>
       <div style={headerRowStyle}>
         <div style={{ display: "flex", alignItems: "center", gap: 14 }}>
           <h2 style={{ fontSize: 17, fontWeight: 600, margin: 0 }}>מוזמנים ({visibleInvitees.length})</h2>
@@ -318,7 +322,7 @@ export default function InviteesTable({ projectId, baseUrl, invitees, questions,
               const relTag = invitee.relation ? tagStyle(invitee.relation) : null;
 
               return (
-                <tr key={invitee.id} style={{ borderBottom: "1px solid #f2f2f2" }}>
+                <tr key={invitee.id} className="invitee-row" style={{ borderBottom: "1px solid #f2f2f2" }}>
                   <td style={tdStyle}>
                     <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
                       <div
