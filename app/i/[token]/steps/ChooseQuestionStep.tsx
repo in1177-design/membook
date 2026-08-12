@@ -42,15 +42,23 @@ export default function ChooseQuestionStep({
 }) {
   const [selected, setSelected] = useState<string | null>(initialSelectedId ?? null);
   // Guards against onChoose firing twice if a second tap lands during the
-  // flash delay (this component is about to unmount anyway, but the timer
-  // isn't cancelled on unmount since there's nothing left to clean up for).
+  // flash delay. Reset right before calling onChoose (not after — there's
+  // nothing to reset once this component unmounts on a real navigation) —
+  // onChoose doesn't always navigate away: switching away from an already-
+  // answered question instead opens SubmissionWizard's confirm-switch
+  // dialog, which leaves this step mounted underneath it. Without the
+  // reset, cancelling that dialog left the guard stuck at true forever,
+  // silently swallowing every further tap on this step.
   const advancingRef = useRef(false);
 
   function choose(questionId: string) {
     if (advancingRef.current) return;
     advancingRef.current = true;
     setSelected(questionId);
-    window.setTimeout(() => onChoose(questionId), ADVANCE_DELAY_MS);
+    window.setTimeout(() => {
+      advancingRef.current = false;
+      onChoose(questionId);
+    }, ADVANCE_DELAY_MS);
   }
 
   function pickForMe() {
