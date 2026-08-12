@@ -22,7 +22,7 @@ export default async function AlbumDesignPage({ params }: { params: Promise<{ id
               id: true,
               sortOrder: true,
               submittedAt: true,
-              mediaAssets: { orderBy: { createdAt: "asc" }, take: 1, select: { url: true } },
+              mediaAssets: { orderBy: { createdAt: "asc" }, take: 1, select: { url: true, width: true, height: true } },
             },
           },
         },
@@ -38,11 +38,13 @@ export default async function AlbumDesignPage({ params }: { params: Promise<{ id
       submissionId: i.submission!.id,
       inviteeName: i.name,
       photoUrl: i.submission!.mediaAssets[0]?.url ?? null,
+      photoWidth: i.submission!.mediaAssets[0]?.width ?? null,
+      photoHeight: i.submission!.mediaAssets[0]?.height ?? null,
       sortOrder: i.submission!.sortOrder,
       submittedAt: i.submission!.submittedAt.getTime(),
     }))
     .sort((a, b) => a.sortOrder - b.sortOrder || a.submittedAt - b.submittedAt)
-    .map(({ submissionId, inviteeName, photoUrl }) => ({ submissionId, inviteeName, photoUrl }));
+    .map(({ submissionId, inviteeName, photoUrl, photoWidth, photoHeight }) => ({ submissionId, inviteeName, photoUrl, photoWidth, photoHeight }));
 
   return (
     <main>

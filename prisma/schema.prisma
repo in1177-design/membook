@@ -32,6 +32,7 @@ enum AttendingStatus {
   YES
   NO
   MAYBE
+  NOT_IN_COUNTRY
 }
 
 enum QuestionMode {

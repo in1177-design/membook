@@ -8,6 +8,7 @@ import RelationSelect from "./RelationSelect";
 import AlbumPageView from "./AlbumPageView";
 import ImportInviteesFromSheet from "./ImportInviteesFromSheet";
 import type { Lang } from "../../../i/[token]/types";
+import { isLowResForPrint } from "../../../../lib/photoQuality";
 import {
   addInvitee,
   addInviteeMediaAsset,
@@ -47,7 +48,7 @@ type Invitee = {
     blessingText: string | null;
     blessingSignedBy: string | null;
     additionalText: string | null;
-    mediaAssets: { id: string; url: string }[];
+    mediaAssets: { id: string; url: string; width: number | null; height: number | null }[];
     answers: { id: string; questionId: string; text: string }[];
   } | null;
 };
@@ -154,6 +155,7 @@ const ATTENDING_STYLE: Record<string, { bg: string; color: string; label: string
   YES: { bg: "#e3f8ec", color: "#0f9d58", label: "כן" },
   NO: { bg: "#fdeaea", color: "#c0392b", label: "לא" },
   MAYBE: { bg: "#fef6e0", color: "#a15c00", label: "אולי" },
+  NOT_IN_COUNTRY: { bg: "#eef2ff", color: "#4338ca", label: "לא בארץ" },
 };
 const ATTENDING_UNSET_STYLE = { bg: "#f1f1f1", color: "#999", label: "לא נקבע" };
 
@@ -184,8 +186,9 @@ function statusOf(invitee: Invitee): keyof typeof STATUS_STYLE {
 type SortKey = "name" | "attending" | "status" | "lastViewed";
 const STATUS_RANK: Record<keyof typeof STATUS_STYLE, number> = { pending: 0, sent: 1, viewed: 2, inProgress: 3, submitted: 4 };
 // Confirmed "כן" first (most actionable for the admin — e.g. seating/catering
-// counts), then "אולי", then "לא", unset last.
-const ATTENDING_RANK: Record<string, number> = { YES: 0, MAYBE: 1, NO: 2 };
+// counts), then "אולי", then "לא"/"לא בארץ" (both definite non-attendees),
+// unset last.
+const ATTENDING_RANK: Record<string, number> = { YES: 0, MAYBE: 1, NO: 2, NOT_IN_COUNTRY: 2 };
 
 function compareBy(key: SortKey, a: Invitee, b: Invitee): number {
   switch (key) {
@@ -386,7 +389,16 @@ export default function InviteesTable({ projectId, baseUrl, invitees, questions,
                   <td style={tdStyle}>
                     <ProgressDots invitee={invitee} />
                   </td>
-                  <td style={tdStyle}>{invitee.submission?.mediaAssets.length ?? 0}</td>
+                  <td style={tdStyle}>
+                    <div style={{ display: "flex", alignItems: "center", gap: 4 }}>
+                      {invitee.submission?.mediaAssets.length ?? 0}
+                      {invitee.submission?.mediaAssets.some((m) => isLowResForPrint(m.width, m.height)) && (
+                        <span title="רזולוציית התמונה נמוכה — היא עלולה להיראות מטושטשת בהדפסה" style={{ color: "#c0392b", fontSize: 13, lineHeight: 1 }}>
+                          ⚠
+                        </span>
+                      )}
+                    </div>
+                  </td>
                   <td style={{ ...tdStyle, color: "#999", fontSize: 13 }} title={link?.firstViewedAt?.toLocaleString("he-IL") ?? ""}>
                     {link?.firstViewedAt ? link.firstViewedAt.toLocaleDateString("he-IL") : "—"}
                   </td>
@@ -898,7 +910,7 @@ function AttendingCell({ invitee, projectId }: { invitee: Invitee; projectId: st
   const style = invitee.attending ? ATTENDING_STYLE[invitee.attending] : ATTENDING_UNSET_STYLE;
 
   async function handleSelect(value: string) {
-    await updateInviteeAttending(invitee.id, projectId, value as "YES" | "NO" | "MAYBE");
+    await updateInviteeAttending(invitee.id, projectId, value as "YES" | "NO" | "MAYBE" | "NOT_IN_COUNTRY");
     router.refresh();
   }
 
@@ -909,6 +921,7 @@ function AttendingCell({ invitee, projectId }: { invitee: Invitee; projectId: st
         { value: "YES", label: "כן" },
         { value: "NO", label: "לא" },
         { value: "MAYBE", label: "אולי" },
+        { value: "NOT_IN_COUNTRY", label: "לא בארץ" },
       ]}
       onSelect={handleSelect}
     />

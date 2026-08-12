@@ -3,8 +3,15 @@
 import { useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { reorderSubmissions } from "../../../../../lib/actions";
+import { isLowResForPrint } from "../../../../../lib/photoQuality";
 
-type Spread = { submissionId: string; inviteeName: string; photoUrl: string | null };
+type Spread = {
+  submissionId: string;
+  inviteeName: string;
+  photoUrl: string | null;
+  photoWidth: number | null;
+  photoHeight: number | null;
+};
 
 export default function AlbumDesignBoard({ projectId, initialSpreads }: { projectId: string; initialSpreads: Spread[] }) {
   const router = useRouter();
@@ -124,6 +131,29 @@ export default function AlbumDesignBoard({ projectId, initialSpreads }: { projec
             >
               {index + 1}
             </span>
+            {isLowResForPrint(spread.photoWidth, spread.photoHeight) && (
+              <span
+                title="רזולוציית התמונה נמוכה — היא עלולה להיראות מטושטשת בהדפסה"
+                style={{
+                  position: "absolute",
+                  top: 6,
+                  insetInlineEnd: 6,
+                  fontSize: 11,
+                  fontWeight: 700,
+                  background: "#c0392b",
+                  color: "white",
+                  borderRadius: 999,
+                  width: 18,
+                  height: 18,
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "center",
+                  lineHeight: 1,
+                }}
+              >
+                ⚠
+              </span>
+            )}
           </div>
           <div style={{ padding: "8px 10px", fontSize: 12, fontWeight: 600, color: "#444", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
             {spread.inviteeName}

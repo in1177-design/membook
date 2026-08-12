@@ -479,7 +479,7 @@ export async function updateInvitee(inviteeId: string, projectId: string, formDa
 }
 
 // Inline updates from the invitees table chips — no form/drawer involved.
-export async function updateInviteeAttending(inviteeId: string, projectId: string, attending: "YES" | "NO" | "MAYBE") {
+export async function updateInviteeAttending(inviteeId: string, projectId: string, attending: "YES" | "NO" | "MAYBE" | "NOT_IN_COUNTRY") {
   await prisma.invitee.update({ where: { id: inviteeId }, data: { attending } });
   revalidatePath(`/admin/projects/${projectId}`);
 }
