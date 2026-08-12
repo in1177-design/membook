@@ -35,10 +35,13 @@ export default function StepBottomNav({
   isSaving,
   error,
   beforeButtons,
+  hideContinue,
 }: {
   lang: Lang;
-  continueLabel: string;
-  onContinue: () => void;
+  // Only required when the continue button is actually shown — see
+  // hideContinue below.
+  continueLabel?: string;
+  onContinue?: () => void;
   continueDisabled?: boolean;
   backLabel: string;
   onBack: () => void;
@@ -48,6 +51,10 @@ export default function StepBottomNav({
   // on mobile) wrapper — currently only used by PhotoStep for its "add a
   // photo later" hint card. Optional so every other caller is unaffected.
   beforeButtons?: ReactNode;
+  // Hides the primary "continue" button, leaving only "back" — for steps
+  // where picking an option advances immediately (ChooseQuestionStep), so
+  // there's nothing left to confirm.
+  hideContinue?: boolean;
 }) {
   return (
     <div className="sub-page-form-bottom sub-step-bottom">
@@ -62,15 +69,17 @@ export default function StepBottomNav({
           rendering at every width, it got pulled into the same row as the
           buttons instead of sitting above them. */}
       <div className="sub-step-buttons-row">
-        <button
-          type="button"
-          className="sub-btn sub-btn-send sub-step-continue"
-          disabled={continueDisabled || isSaving}
-          onClick={onContinue}
-        >
-          <span>{isSaving ? "..." : continueLabel}</span>
-          <ChevronIcon lang={lang} forward color="white" />
-        </button>
+        {!hideContinue && (
+          <button
+            type="button"
+            className="sub-btn sub-btn-send sub-step-continue"
+            disabled={continueDisabled || isSaving}
+            onClick={onContinue}
+          >
+            <span>{isSaving ? "..." : continueLabel}</span>
+            <ChevronIcon lang={lang} forward color="white" />
+          </button>
+        )}
         <button type="button" className="sub-step-back" onClick={onBack} disabled={isSaving}>
           <ChevronIcon lang={lang} color="#3b57d6" />
           <span>{backLabel}</span>

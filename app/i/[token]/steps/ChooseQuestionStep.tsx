@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useRef, useState } from "react";
 import { questionText, type Lang, type LangContent, type Question } from "../types";
 import { QUESTION_SHORT_LABEL, STEP_OF_LABEL } from "../content";
 import StepBottomNav from "./StepBottomNav";
@@ -14,11 +14,12 @@ const SURPRISE_LABEL: Record<Lang, string> = {
   RU: "Не знаете, что выбрать? Выберите вопрос за меня",
   EN: "Not sure what to pick? Choose a question for me",
 };
-const CONTINUE_LABEL: Record<Lang, string> = {
-  HE: "המשך עם השאלה שבחרתי",
-  RU: "Продолжить с выбранным вопросом",
-  EN: "Continue with my question",
-};
+
+// Selecting a question advances immediately (no separate "continue" button —
+// removed per product decision: one less tap, "back" stays as the way to
+// undo a wrong pick). This delay just lets the checkmark flash briefly
+// before the step transition, so the tap still gets visible feedback.
+const ADVANCE_DELAY_MS = 200;
 
 export default function ChooseQuestionStep({
   questions,
@@ -40,11 +41,22 @@ export default function ChooseQuestionStep({
   stepTotal: number;
 }) {
   const [selected, setSelected] = useState<string | null>(initialSelectedId ?? null);
+  // Guards against onChoose firing twice if a second tap lands during the
+  // flash delay (this component is about to unmount anyway, but the timer
+  // isn't cancelled on unmount since there's nothing left to clean up for).
+  const advancingRef = useRef(false);
+
+  function choose(questionId: string) {
+    if (advancingRef.current) return;
+    advancingRef.current = true;
+    setSelected(questionId);
+    window.setTimeout(() => onChoose(questionId), ADVANCE_DELAY_MS);
+  }
 
   function pickForMe() {
     if (questions.length === 0) return;
     const pick = questions[Math.floor(Math.random() * questions.length)];
-    setSelected(pick.id);
+    choose(pick.id);
   }
 
   return (
@@ -66,7 +78,7 @@ export default function ChooseQuestionStep({
                 type="button"
                 key={q.id}
                 className={`sub-choose-option${isSelected ? " selected" : ""}`}
-                onClick={() => setSelected(q.id)}
+                onClick={() => choose(q.id)}
                 aria-pressed={isSelected}
               >
                 <span className="sub-choose-option-text">{questionText(q, lang)}</span>
@@ -82,14 +94,7 @@ export default function ChooseQuestionStep({
         </div>
       </div>
 
-      <StepBottomNav
-        lang={lang}
-        continueLabel={CONTINUE_LABEL[lang]}
-        continueDisabled={!selected}
-        onContinue={() => selected && onChoose(selected)}
-        backLabel={c.backLabel}
-        onBack={onBack}
-      />
+      <StepBottomNav lang={lang} hideContinue backLabel={c.backLabel} onBack={onBack} />
     </div>
   );
 }
