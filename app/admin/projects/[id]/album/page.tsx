@@ -12,17 +12,28 @@ export default async function AlbumDesignPage({ params }: { params: Promise<{ id
     select: {
       id: true,
       name: true,
+      defaultLanguage: true,
+      questions: {
+        orderBy: { sortOrder: "asc" },
+        select: { id: true, textHe: true, textRu: true, textEn: true, helperTextHe: true, helperTextRu: true, helperTextEn: true },
+      },
       invitees: {
         where: { submission: { isNot: null } },
         select: {
           id: true,
           name: true,
+          language: true,
           submission: {
             select: {
               id: true,
               sortOrder: true,
               submittedAt: true,
-              mediaAssets: { orderBy: { createdAt: "asc" }, take: 1, select: { url: true, width: true, height: true } },
+              dateLocation: true,
+              blessingText: true,
+              blessingSignedBy: true,
+              additionalText: true,
+              answers: { select: { questionId: true, text: true } },
+              mediaAssets: { orderBy: { createdAt: "asc" }, take: 1, select: { id: true, url: true, width: true, height: true } },
             },
           },
         },
@@ -36,15 +47,23 @@ export default async function AlbumDesignPage({ params }: { params: Promise<{ id
     .filter((i) => i.submission)
     .map((i) => ({
       submissionId: i.submission!.id,
+      inviteeId: i.id,
       inviteeName: i.name,
+      language: i.language,
+      photoId: i.submission!.mediaAssets[0]?.id ?? null,
       photoUrl: i.submission!.mediaAssets[0]?.url ?? null,
       photoWidth: i.submission!.mediaAssets[0]?.width ?? null,
       photoHeight: i.submission!.mediaAssets[0]?.height ?? null,
+      dateLocation: i.submission!.dateLocation,
+      blessingText: i.submission!.blessingText,
+      blessingSignedBy: i.submission!.blessingSignedBy,
+      additionalText: i.submission!.additionalText,
+      answers: Object.fromEntries(i.submission!.answers.map((a) => [a.questionId, a.text])),
       sortOrder: i.submission!.sortOrder,
       submittedAt: i.submission!.submittedAt.getTime(),
     }))
     .sort((a, b) => a.sortOrder - b.sortOrder || a.submittedAt - b.submittedAt)
-    .map(({ submissionId, inviteeName, photoUrl, photoWidth, photoHeight }) => ({ submissionId, inviteeName, photoUrl, photoWidth, photoHeight }));
+    .map(({ sortOrder, submittedAt, ...spread }) => spread);
 
   return (
     <main>
@@ -53,7 +72,7 @@ export default async function AlbumDesignPage({ params }: { params: Promise<{ id
         כאן רואים את כל הכפולות שנוצרו לאלבום. גררי כדי לשנות את הסדר.
       </p>
 
-      <AlbumDesignBoard projectId={project.id} initialSpreads={spreads} />
+      <AlbumDesignBoard projectId={project.id} defaultLanguage={project.defaultLanguage} questions={project.questions} initialSpreads={spreads} />
     </main>
   );
 }
