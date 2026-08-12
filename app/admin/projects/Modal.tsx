@@ -7,7 +7,22 @@ import { useEffect } from "react";
 // at a real width (e.g. AlbumPageView's book-page preview, which needs 860px+
 // to trigger SubmissionBook's own desktop two-column layout) instead of an
 // edge-docked side panel.
-export default function Modal({ onClose, children }: { onClose: () => void; children: React.ReactNode }) {
+export default function Modal({
+  onClose,
+  children,
+  onPrev,
+  onNext,
+}: {
+  onClose: () => void;
+  children: React.ReactNode;
+  // Optional prev/next paging (album design board's "עיין" preview, paging
+  // between spreads without closing/reopening the modal) — undefined means
+  // no arrow in that direction (e.g. already at the first/last spread), not
+  // just disabled, so callers that never page (InviteesTable's preview)
+  // don't need to pass anything and get no arrows at all.
+  onPrev?: () => void;
+  onNext?: () => void;
+}) {
   // Blurring before closing matters here specifically: AlbumPageView's
   // inline editing (SubmissionBook.tsx's editable* props) only saves
   // onBlur — closing via Escape used to skip that entirely (Escape doesn't
@@ -23,10 +38,16 @@ export default function Modal({ onClose, children }: { onClose: () => void; chil
   useEffect(() => {
     function handleKey(e: KeyboardEvent) {
       if (e.key === "Escape") closeAndBlur();
+      // Spatial, not reading-direction: ← always means the button sitting
+      // on the screen's left edge (previous), → the one on the right
+      // (next) — the standard lightbox/slideshow convention, independent
+      // of the app's RTL layout.
+      if (e.key === "ArrowLeft" && onPrev) onPrev();
+      if (e.key === "ArrowRight" && onNext) onNext();
     }
     document.addEventListener("keydown", handleKey);
     return () => document.removeEventListener("keydown", handleKey);
-  }, [onClose]);
+  }, [onClose, onPrev, onNext]);
 
   return (
     <div
@@ -42,6 +63,11 @@ export default function Modal({ onClose, children }: { onClose: () => void; chil
         boxSizing: "border-box",
       }}
     >
+      {onPrev && (
+        <button type="button" onClick={onPrev} aria-label="הקודם" style={arrowButtonStyle("left")}>
+          ‹
+        </button>
+      )}
       <div
         style={{
           width: "min(1040px, 94vw)",
@@ -66,6 +92,33 @@ export default function Modal({ onClose, children }: { onClose: () => void; chil
         </div>
         <div style={{ padding: 24 }}>{children}</div>
       </div>
+      {onNext && (
+        <button type="button" onClick={onNext} aria-label="הבא" style={arrowButtonStyle("right")}>
+          ›
+        </button>
+      )}
     </div>
   );
+}
+
+function arrowButtonStyle(side: "left" | "right"): React.CSSProperties {
+  return {
+    position: "fixed",
+    top: "50%",
+    [side]: 16,
+    transform: "translateY(-50%)",
+    zIndex: 51,
+    width: 44,
+    height: 44,
+    borderRadius: "50%",
+    border: "none",
+    background: "rgba(0,0,0,0.45)",
+    color: "white",
+    fontSize: 26,
+    lineHeight: 1,
+    cursor: "pointer",
+    display: "flex",
+    alignItems: "center",
+    justifyContent: "center",
+  };
 }

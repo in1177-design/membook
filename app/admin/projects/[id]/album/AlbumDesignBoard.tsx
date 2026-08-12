@@ -58,7 +58,10 @@ export default function AlbumDesignBoard({
   const savingRef = useRef(false);
   // Same preview as the invitees table's "עיין" button — the real review
   // screen (AlbumPageView), fed with this spread's own submission data.
-  const [previewingSpread, setPreviewingSpread] = useState<Spread | null>(null);
+  // Tracked by index (not the spread object itself) so the modal's ‹/›
+  // arrows can page to the adjacent spread without closing and reopening.
+  const [previewIndex, setPreviewIndex] = useState<number | null>(null);
+  const previewingSpread = previewIndex !== null ? spreads[previewIndex] : null;
 
   async function persist(order: Spread[]) {
     savingRef.current = true;
@@ -136,7 +139,7 @@ export default function AlbumDesignBoard({
             // drag (mousedown→dragstart→…→dragend, no click in between) — a
             // plain tap without movement still does, so click-to-preview and
             // drag-to-reorder coexist on the same element without conflict.
-            onClick={() => setPreviewingSpread(spread)}
+            onClick={() => setPreviewIndex(index)}
             style={{
               cursor: "pointer",
               userSelect: "none",
@@ -149,7 +152,7 @@ export default function AlbumDesignBoard({
               transition: "opacity 0.12s ease, border-color 0.12s ease",
             }}
           >
-            <div style={{ position: "relative", aspectRatio: "3 / 4", background: "#f7f6f4" }}>
+            <div style={{ position: "relative", aspectRatio: "1 / 1", background: "#f7f6f4" }}>
               {spread.photoUrl ? (
                 <img
                   src={spread.photoUrl}
@@ -213,9 +216,17 @@ export default function AlbumDesignBoard({
         ))}
       </div>
 
-      {previewingSpread && (
-        <Modal onClose={() => setPreviewingSpread(null)}>
+      {previewingSpread && previewIndex !== null && (
+        <Modal
+          onClose={() => setPreviewIndex(null)}
+          onPrev={previewIndex > 0 ? () => setPreviewIndex(previewIndex - 1) : undefined}
+          onNext={previewIndex < spreads.length - 1 ? () => setPreviewIndex(previewIndex + 1) : undefined}
+        >
           <AlbumPageView
+            // Remount on page-change — AlbumPageView seeds its own editable
+            // state (blessing/answer text) from props via useState, which
+            // React won't re-initialize on a prop change alone.
+            key={previewingSpread.inviteeId}
             inviteeId={previewingSpread.inviteeId}
             projectId={projectId}
             lang={toLangCode(previewingSpread.language ?? defaultLanguage)}
@@ -226,7 +237,7 @@ export default function AlbumDesignBoard({
             blessingSignedBy={previewingSpread.blessingSignedBy}
             additionalText={previewingSpread.additionalText}
             photo={previewingSpread.photoId && previewingSpread.photoUrl ? { id: previewingSpread.photoId, url: previewingSpread.photoUrl } : null}
-            onClose={() => setPreviewingSpread(null)}
+            onClose={() => setPreviewIndex(null)}
           />
         </Modal>
       )}
