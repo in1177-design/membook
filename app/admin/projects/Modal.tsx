@@ -38,12 +38,13 @@ export default function Modal({
   useEffect(() => {
     function handleKey(e: KeyboardEvent) {
       if (e.key === "Escape") closeAndBlur();
-      // Spatial, not reading-direction: ← always means the button sitting
-      // on the screen's left edge (previous), → the one on the right
-      // (next) — the standard lightbox/slideshow convention, independent
-      // of the app's RTL layout.
-      if (e.key === "ArrowLeft" && onPrev) onPrev();
-      if (e.key === "ArrowRight" && onNext) onNext();
+      // The arrow buttons are plain flex siblings with no explicit
+      // `direction`, so they inherit the page's dir="rtl" — the DOM's
+      // first child (prev) ends up rendered on the visual right, the last
+      // (next) on the visual left. Keyboard arrows follow the same visual
+      // mapping, not a fixed "← is always previous" rule.
+      if (e.key === "ArrowRight" && onPrev) onPrev();
+      if (e.key === "ArrowLeft" && onNext) onNext();
     }
     document.addEventListener("keydown", handleKey);
     return () => document.removeEventListener("keydown", handleKey);
@@ -59,13 +60,21 @@ export default function Modal({
         display: "flex",
         alignItems: "center",
         justifyContent: "center",
+        gap: 12,
         padding: 24,
         boxSizing: "border-box",
       }}
     >
+      {/* Arrows sit as flex siblings right up against the card itself
+          (not pinned to the far screen edges) — on a wide viewport the
+          card tops out at 1040px, so edge-pinned arrows would end up far
+          from what they're actually paging. flex-shrink:0 keeps them from
+          being squeezed by the card's own min(1040px, 94vw) width. */}
+      {/* RTL flex row renders this first child on the visual right —
+          glyph points outward (right) to match. */}
       {onPrev && (
-        <button type="button" onClick={onPrev} aria-label="הקודם" style={arrowButtonStyle("left")}>
-          ‹
+        <button type="button" onClick={onPrev} aria-label="הקודם" style={arrowButtonStyle}>
+          ›
         </button>
       )}
       <div
@@ -92,33 +101,29 @@ export default function Modal({
         </div>
         <div style={{ padding: 24 }}>{children}</div>
       </div>
+      {/* Last child renders on the visual left in RTL — glyph points
+          outward (left) to match. */}
       {onNext && (
-        <button type="button" onClick={onNext} aria-label="הבא" style={arrowButtonStyle("right")}>
-          ›
+        <button type="button" onClick={onNext} aria-label="הבא" style={arrowButtonStyle}>
+          ‹
         </button>
       )}
     </div>
   );
 }
 
-function arrowButtonStyle(side: "left" | "right"): React.CSSProperties {
-  return {
-    position: "fixed",
-    top: "50%",
-    [side]: 16,
-    transform: "translateY(-50%)",
-    zIndex: 51,
-    width: 44,
-    height: 44,
-    borderRadius: "50%",
-    border: "none",
-    background: "rgba(0,0,0,0.45)",
-    color: "white",
-    fontSize: 26,
-    lineHeight: 1,
-    cursor: "pointer",
-    display: "flex",
-    alignItems: "center",
-    justifyContent: "center",
-  };
-}
+const arrowButtonStyle: React.CSSProperties = {
+  flexShrink: 0,
+  width: 44,
+  height: 44,
+  borderRadius: "50%",
+  border: "none",
+  background: "rgba(0,0,0,0.45)",
+  color: "white",
+  fontSize: 26,
+  lineHeight: 1,
+  cursor: "pointer",
+  display: "flex",
+  alignItems: "center",
+  justifyContent: "center",
+};
