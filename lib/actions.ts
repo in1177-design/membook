@@ -490,6 +490,16 @@ export async function updateInviteeLanguage(inviteeId: string, projectId: string
   revalidatePath(`/admin/projects/${projectId}`);
 }
 
+// Manual override for InviteesTable.tsx's "סטטוס" pill (see Invitee.manualStatus
+// in schema.prisma) — `status: null` clears it back to fully auto-computed.
+// No validation against a fixed set of values here (manualStatus is a plain
+// string, not an enum) since the only caller is InviteesTable.tsx's own
+// STATUS_STYLE-derived menu.
+export async function updateInviteeManualStatus(inviteeId: string, projectId: string, status: string | null) {
+  await prisma.invitee.update({ where: { id: inviteeId }, data: { manualStatus: status } });
+  revalidatePath(`/admin/projects/${projectId}`);
+}
+
 export async function markInviteSent(inviteLinkId: string, projectId: string) {
   await prisma.inviteLink.update({
     where: { id: inviteLinkId },

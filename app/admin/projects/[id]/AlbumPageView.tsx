@@ -16,6 +16,16 @@ import {
 
 type Photo = { id: string; url: string };
 
+// Cloudinary URLs end in a real file extension (…/upload/v123/abc.jpg) —
+// reused as the downloaded file's extension so it opens correctly in a
+// photo viewer instead of an extension-less file. Falls back to .jpg (the
+// upload format Cloudinary is asked for elsewhere in this app) if for some
+// reason the URL doesn't have one.
+function extensionFromUrl(url: string): string {
+  const match = /\.([a-zA-Z0-9]+)(?:\?|$)/.exec(url);
+  return match ? `.${match[1]}` : ".jpg";
+}
+
 type QuestionRef = {
   id: string;
   textHe: string;
@@ -160,6 +170,31 @@ export default function AlbumPageView({
     }
   }
 
+  // Fetches the photo as a blob first rather than a plain <a download> —
+  // Cloudinary is a different origin, and a cross-origin download attribute
+  // is silently ignored by the browser (it just navigates/opens the image
+  // instead of saving it). Falls back to opening it in a new tab (still
+  // right-click-saveable) if the fetch itself fails, e.g. a CORS policy
+  // change on the Cloudinary side.
+  async function handleDownload() {
+    if (!photo) return;
+    try {
+      const res = await fetch(photo.url);
+      if (!res.ok) throw new Error();
+      const blob = await res.blob();
+      const objectUrl = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = objectUrl;
+      a.download = `${inviteeId}${extensionFromUrl(photo.url)}`;
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+      URL.revokeObjectURL(objectUrl);
+    } catch {
+      window.open(photo.url, "_blank", "noopener,noreferrer");
+    }
+  }
+
   const photoOverlay = (
     <div
       style={{
@@ -178,6 +213,9 @@ export default function AlbumPageView({
       </button>
       <button type="button" onClick={() => fileInputRef.current?.click()} disabled={uploading} className="sub-album-photo-btn">
         {uploading ? "מעלה..." : photo ? "החלפת תמונה" : "העלאת תמונה"}
+      </button>
+      <button type="button" onClick={handleDownload} disabled={!photo} className="sub-album-photo-btn">
+        הורדת תמונה
       </button>
       <input
         ref={fileInputRef}

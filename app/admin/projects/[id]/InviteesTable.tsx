@@ -20,6 +20,7 @@ import {
   regenerateInviteLink,
   updateInviteeAttending,
   updateInviteeLanguage,
+  updateInviteeManualStatus,
 } from "../../../../lib/actions";
 
 type Invitee = {
@@ -33,6 +34,7 @@ type Invitee = {
   language: string | null;
   notes: string | null;
   attending: string | null;
+  manualStatus: string | null;
   inviteLink: {
     id: string;
     token: string;
@@ -160,6 +162,12 @@ const ATTENDING_STYLE: Record<string, { bg: string; color: string; label: string
 const ATTENDING_UNSET_STYLE = { bg: "#f1f1f1", color: "#999", label: "לא נקבע" };
 
 const STATUS_STYLE: Record<string, { bg: string; color: string; label: string }> = {
+  // Manual-only — never computed automatically (see statusOf). Reached by
+  // clicking the "הוגש" pill, or set directly via the row's "פעולות
+  // נוספות" ← "שינוי סטטוס" menu. Once set it sticks (manualStatus is only
+  // ever cleared back to "אוטומטי" from that same menu), so it survives
+  // whatever the invitee's real activity does next.
+  inDesign: { bg: "#fde8f6", color: "#a3197b", label: "בעיצוב" },
   submitted: { bg: "#e3f8ec", color: "#0f9d58", label: "הוגש" },
   // A Submission row exists (e.g. an admin pre-loaded a photo before the
   // invite was ever sent — AddInviteeForm/EditInviteeForm/AlbumPageView —
@@ -172,7 +180,15 @@ const STATUS_STYLE: Record<string, { bg: string; color: string; label: string }>
   pending: { bg: "#f1f1f1", color: "#777", label: "טרם נשלח" },
 };
 
+// Plain string (not an enum) on Invitee.manualStatus — validate against
+// STATUS_STYLE's real keys so a stale/unknown value never breaks rendering
+// or sorting; falls through to the auto-computed status instead.
+function isKnownStatus(value: string): value is keyof typeof STATUS_STYLE {
+  return value in STATUS_STYLE;
+}
+
 function statusOf(invitee: Invitee): keyof typeof STATUS_STYLE {
+  if (invitee.manualStatus && isKnownStatus(invitee.manualStatus)) return invitee.manualStatus;
   if (invitee.submission?.completedAt) return "submitted";
   if (invitee.submission) return "inProgress";
   if (invitee.inviteLink?.firstViewedAt) return "viewed";
@@ -184,7 +200,7 @@ function statusOf(invitee: Invitee): keyof typeof STATUS_STYLE {
 // per product decision). Least-progressed → most-progressed, matching the
 // guest journey — same ordering rationale as STATUS_STYLE above.
 type SortKey = "name" | "attending" | "status" | "lastViewed";
-const STATUS_RANK: Record<keyof typeof STATUS_STYLE, number> = { pending: 0, sent: 1, viewed: 2, inProgress: 3, submitted: 4 };
+const STATUS_RANK: Record<keyof typeof STATUS_STYLE, number> = { pending: 0, sent: 1, viewed: 2, inProgress: 3, submitted: 4, inDesign: 5 };
 // Confirmed "כן" first (most actionable for the admin — e.g. seating/catering
 // counts), then "אולי", then "לא"/"לא בארץ" (both definite non-attendees),
 // unset last.
@@ -372,19 +388,7 @@ export default function InviteesTable({ projectId, baseUrl, invitees, questions,
                     <AttendingCell invitee={invitee} projectId={projectId} />
                   </td>
                   <td style={tdStyle}>
-                    {statusOf(invitee) === "pending" && link ? (
-                      <form action={markInviteSent.bind(null, link.id, projectId)}>
-                        <button
-                          type="submit"
-                          style={{ ...pillStyle, background: status.bg, color: status.color, border: "none", cursor: "pointer" }}
-                          title="לחיצה תסמן כנשלח"
-                        >
-                          {status.label}
-                        </button>
-                      </form>
-                    ) : (
-                      <span style={{ ...pillStyle, background: status.bg, color: status.color }}>{status.label}</span>
-                    )}
+                    <StatusCell invitee={invitee} projectId={projectId} status={status} link={link} />
                   </td>
                   <td style={tdStyle}>
                     <ProgressDots invitee={invitee} />
@@ -470,48 +474,48 @@ export default function InviteesTable({ projectId, baseUrl, invitees, questions,
 }
 
 const PROGRESS_STEPS = [
-  { key: "sent", label: "נשלח" },
-  { key: "viewed", label: "כניסה ראשונה" },
-  { key: "answered", label: "נכתב טקסט" },
-  { key: "photo", label: "התווספה תמונה" },
-  { key: "submitted", label: "הוגש" },
+  { key: "viewed", label: "נפתח" },
+  { key: "answered", label: "הוכנס טקסט" },
+  { key: "photo", label: "צורפה תמונה" },
+  { key: "submitted", label: "נשלח" },
+  { key: "design", label: "יש עיצוב" },
 ] as const;
 
+// Plain spaced dots, no connecting bars between them — each step stands on
+// its own rather than reading as one continuous progress bar.
 function ProgressDots({ invitee }: { invitee: Invitee }) {
   const link = invitee.inviteLink;
   const sub = invitee.submission;
 
   const done = [
-    Boolean(link?.sentAt),
     Boolean(link?.firstViewedAt),
     Boolean(sub && sub.answers.length > 0),
     Boolean(sub && sub.mediaAssets.length > 0),
-    Boolean(sub?.submittedAt),
+    Boolean(sub?.completedAt),
+    statusOf(invitee) === "inDesign",
   ];
 
   return (
-    <div style={{ display: "flex", alignItems: "center" }}>
+    <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
       {PROGRESS_STEPS.map((step, i) => {
         const title =
-          i === 1
+          i === 0
             ? link?.firstViewedAt
               ? `נפתח לראשונה: ${link.firstViewedAt.toLocaleString("he-IL")}`
               : "טרם נפתח"
             : step.label;
         return (
-          <div key={step.key} style={{ display: "flex", alignItems: "center" }}>
-            {i > 0 && <div style={{ width: 16, height: 2, background: done[i] ? "#22c55e" : "#ddd" }} />}
-            <div
-              title={title}
-              style={{
-                width: 10,
-                height: 10,
-                borderRadius: "50%",
-                background: done[i] ? "#22c55e" : "#ddd",
-                flexShrink: 0,
-              }}
-            />
-          </div>
+          <div
+            key={step.key}
+            title={title}
+            style={{
+              width: 10,
+              height: 10,
+              borderRadius: "50%",
+              background: done[i] ? "#22c55e" : "#ddd",
+              flexShrink: 0,
+            }}
+          />
         );
       })}
     </div>
@@ -715,11 +719,26 @@ function AddInviteeMenu({ onAddSingle, onImportFromSheet }: { onAddSingle: () =>
   );
 }
 
+// Manual status options offered from "שינוי סטטוס" — every real STATUS_STYLE
+// key plus "אוטומטי" (clears manualStatus, handing control back to statusOf's
+// own activity-based computation).
+const MANUAL_STATUS_OPTIONS: { value: string | null; label: string }[] = [
+  { value: null, label: "אוטומטי (לפי הפעילות בפועל)" },
+  { value: "pending", label: STATUS_STYLE.pending.label },
+  { value: "sent", label: STATUS_STYLE.sent.label },
+  { value: "viewed", label: STATUS_STYLE.viewed.label },
+  { value: "inProgress", label: STATUS_STYLE.inProgress.label },
+  { value: "submitted", label: STATUS_STYLE.submitted.label },
+  { value: "inDesign", label: STATUS_STYLE.inDesign.label },
+];
+
 function MoreMenu({ invitee, projectId }: { invitee: Invitee; projectId: string }) {
   const router = useRouter();
   const link = invitee.inviteLink;
   const [open, setOpen] = useState(false);
+  const [view, setView] = useState<"main" | "status">("main");
   const [deleting, setDeleting] = useState(false);
+  const [settingStatus, setSettingStatus] = useState(false);
   const ref = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -730,6 +749,16 @@ function MoreMenu({ invitee, projectId }: { invitee: Invitee; projectId: string 
     document.addEventListener("mousedown", handleClick);
     return () => document.removeEventListener("mousedown", handleClick);
   }, [open]);
+
+  // Reset back to the main menu each time it's reopened, rather than
+  // reopening straight into the status submenu from wherever it was left.
+  function toggleOpen() {
+    setOpen((v) => {
+      if (v) return false;
+      setView("main");
+      return true;
+    });
+  }
 
   async function handleDelete() {
     if (!window.confirm(`למחוק לצמיתות את "${invitee.name}"? הפעולה בלתי הפיכה ותמחק גם את התשובות והתמונות שהתקבלו ממנו/ה.`)) {
@@ -744,9 +773,20 @@ function MoreMenu({ invitee, projectId }: { invitee: Invitee; projectId: string 
     }
   }
 
+  async function handleSetStatus(value: string | null) {
+    setSettingStatus(true);
+    try {
+      await updateInviteeManualStatus(invitee.id, projectId, value);
+      setOpen(false);
+      router.refresh();
+    } finally {
+      setSettingStatus(false);
+    }
+  }
+
   return (
     <div ref={ref} style={{ position: "relative" }}>
-      <button type="button" onClick={() => setOpen((v) => !v)} style={iconButtonStyle} title="פעולות נוספות" aria-label="פעולות נוספות">
+      <button type="button" onClick={toggleOpen} style={iconButtonStyle} title="פעולות נוספות" aria-label="פעולות נוספות">
         <MoreIcon />
       </button>
 
@@ -756,7 +796,7 @@ function MoreMenu({ invitee, projectId }: { invitee: Invitee; projectId: string 
             position: "absolute",
             top: "calc(100% + 6px)",
             insetInlineEnd: 0,
-            minWidth: 170,
+            minWidth: 190,
             background: "white",
             border: "1px solid #eee",
             borderRadius: 10,
@@ -765,23 +805,55 @@ function MoreMenu({ invitee, projectId }: { invitee: Invitee; projectId: string 
             zIndex: 10,
           }}
         >
-          {link && !link.revokedAt && (
-            <form action={revokeInviteLink.bind(null, link.id, projectId)}>
-              <button type="submit" style={menuItemStyle}>
-                ביטול קישור
+          {view === "main" ? (
+            <>
+              {link && !link.revokedAt && (
+                <form action={revokeInviteLink.bind(null, link.id, projectId)}>
+                  <button type="submit" style={menuItemStyle}>
+                    ביטול קישור
+                  </button>
+                </form>
+              )}
+              {link && link.revokedAt && (
+                <form action={regenerateInviteLink.bind(null, link.id, projectId)}>
+                  <button type="submit" style={menuItemStyle}>
+                    יצירת קישור חדש
+                  </button>
+                </form>
+              )}
+              <button type="button" onClick={() => setView("status")} style={menuItemStyle}>
+                שינוי סטטוס
               </button>
-            </form>
-          )}
-          {link && link.revokedAt && (
-            <form action={regenerateInviteLink.bind(null, link.id, projectId)}>
-              <button type="submit" style={menuItemStyle}>
-                יצירת קישור חדש
+              <button type="button" onClick={handleDelete} disabled={deleting} style={{ ...menuItemStyle, color: "#c0392b" }}>
+                {deleting ? "מוחקת..." : "מחיקת מוזמן"}
               </button>
-            </form>
+            </>
+          ) : (
+            <>
+              <button
+                type="button"
+                onClick={() => setView("main")}
+                style={{ ...menuItemStyle, color: "#999", fontSize: 12, display: "flex", alignItems: "center", gap: 4 }}
+              >
+                → חזרה
+              </button>
+              {MANUAL_STATUS_OPTIONS.map((opt) => (
+                <button
+                  key={opt.label}
+                  type="button"
+                  disabled={settingStatus}
+                  onClick={() => handleSetStatus(opt.value)}
+                  style={{
+                    ...menuItemStyle,
+                    fontWeight: (invitee.manualStatus ?? null) === opt.value ? 700 : 400,
+                    opacity: settingStatus ? 0.5 : 1,
+                  }}
+                >
+                  {opt.label}
+                </button>
+              ))}
+            </>
           )}
-          <button type="button" onClick={handleDelete} disabled={deleting} style={{ ...menuItemStyle, color: "#c0392b" }}>
-            {deleting ? "מוחקת..." : "מחיקת מוזמן"}
-          </button>
         </div>
       )}
     </div>
@@ -903,6 +975,66 @@ function InlineChipMenu({
       )}
     </div>
   );
+}
+
+// The "סטטוס" pill. Mirrors the existing "טרם נשלח" behavior (a clickable
+// form that advances the invitee one step) for the one other step that's
+// meant to advance by a simple click: once a submission is actually done
+// ("הוגש"), clicking it marks the invitee "בעיצוב" (manualStatus). Every
+// other status stays a plain, non-clickable pill here — advancing/changing
+// those goes through "פעולות נוספות" ← "שינוי סטטוס" (MoreMenu) instead.
+function StatusCell({
+  invitee,
+  projectId,
+  status,
+  link,
+}: {
+  invitee: Invitee;
+  projectId: string;
+  status: { bg: string; color: string; label: string };
+  link: Invitee["inviteLink"];
+}) {
+  const router = useRouter();
+  const current = statusOf(invitee);
+  const [marking, setMarking] = useState(false);
+
+  if (current === "pending" && link) {
+    return (
+      <form action={markInviteSent.bind(null, link.id, projectId)}>
+        <button
+          type="submit"
+          style={{ ...pillStyle, background: status.bg, color: status.color, border: "none", cursor: "pointer" }}
+          title="לחיצה תסמן כנשלח"
+        >
+          {status.label}
+        </button>
+      </form>
+    );
+  }
+
+  if (current === "submitted") {
+    return (
+      <button
+        type="button"
+        disabled={marking}
+        onClick={async () => {
+          setMarking(true);
+          try {
+            await updateInviteeManualStatus(invitee.id, projectId, "inDesign");
+            router.refresh();
+          } finally {
+            setMarking(false);
+          }
+        }}
+        style={{ ...pillStyle, background: status.bg, color: status.color, border: "none", cursor: marking ? "default" : "pointer", opacity: marking ? 0.6 : 1 }}
+        title="לחיצה תסמן כ״בעיצוב״"
+      >
+        {status.label}
+      </button>
+    );
+  }
+
+  return <span style={{ ...pillStyle, background: status.bg, color: status.color }}>{status.label}</span>;
 }
 
 function AttendingCell({ invitee, projectId }: { invitee: Invitee; projectId: string }) {

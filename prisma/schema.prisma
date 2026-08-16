@@ -210,6 +210,16 @@ model Invitee {
   // RSVP status, set by the admin (not collected from the guest in v1).
   attending AttendingStatus?
 
+  // Manual override for the invitees-table "סטטוס" pill (InviteesTable.tsx's
+  // statusOf()). Null (the default) means the status is fully auto-computed
+  // from real activity (invite sent/viewed, submission progress). Set either
+  // by clicking the "הוגש" pill to advance it to "בעיצוב", or explicitly via
+  // the "שינוי סטטוס" action in the row's "פעולות נוספות" menu — both write
+  // one of STATUS_STYLE's own keys here (plain string, not an enum, so new
+  // statuses can be added without a migration). "אוטומטי" in that menu clears
+  // it back to null.
+  manualStatus String?
+
   inviteLink InviteLink?
   submission Submission?
 
