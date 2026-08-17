@@ -48,6 +48,11 @@ const SIGNED_BY_LABEL: Record<Lang, string> = { HE: "מאת", RU: "От", EN: "F
 // textarea time to blur first, so this is the one guaranteed way to commit
 // an edit before leaving the section.
 const SAVE_LABEL: Record<Lang, string> = { HE: "שמור", RU: "Сохранить", EN: "Save" };
+// Admin-only (AlbumPageView) — copy-to-clipboard next to every "עריכה" pencil,
+// so the admin can grab a section's text (e.g. to paste into design software)
+// without switching into edit mode first.
+const COPY_LABEL: Record<Lang, string> = { HE: "העתקה", RU: "Копировать", EN: "Copy" };
+const COPIED_LABEL: Record<Lang, string> = { HE: "הועתק", RU: "Скопировано", EN: "Copied" };
 const ADD_ADDITIONAL_TEXT_LABEL: Record<Lang, string> = {
   HE: "+ הוספת מידע נוסף",
   RU: "+ Добавить дополнительную информацию",
@@ -167,6 +172,15 @@ export const BOOK_STYLES = `
     display: inline-flex; align-items: center; gap: 4px; font-size: 13px; font-weight: 700;
     color: #5838b8; background: none; border: none; padding: 0; cursor: pointer;
   }
+  /* Admin-only copy-to-clipboard, sitting right next to .sub-preview-edit-link
+     (same row, same size) — muted gray rather than the edit link's purple so
+     the pencil (the primary action) still reads as more prominent. */
+  .sub-preview-copy-link {
+    display: inline-flex; align-items: center; gap: 4px; font-size: 13px; font-weight: 700;
+    color: #999; background: none; border: none; padding: 0; cursor: pointer;
+  }
+  .sub-preview-copy-link.is-copied { color: #0f9d58; }
+  .sub-preview-section-head-actions { display: flex; align-items: center; gap: 12px; flex-shrink: 0; }
 
   .sub-divider { border: none; border-top: 1px solid #e8e6e2; margin: 0 0 20px; }
   .sub-field-label { display: block; font-size: 11px; font-weight: 700; letter-spacing: 1.2px; text-transform: uppercase; color: #9a9a9a; margin-bottom: 8px; }
@@ -218,7 +232,11 @@ export const BOOK_STYLES = `
   /* "מאת" footer bar, sitting below every card (not nested inside the
      blessing card) — matches the design sketch's light strip under both
      cards rather than a byline glued to the blessing text. */
-  .sub-preview-signed-by-bar { margin-top: 4px; padding: 12px 16px; border-radius: 10px; background: #f7f6f4; font-size: 13px; color: #666; overflow-wrap: break-word; word-break: break-word; }
+  .sub-preview-signed-by-bar {
+    margin-top: 4px; padding: 12px 16px; border-radius: 10px; background: #f7f6f4; font-size: 13px; color: #666;
+    overflow-wrap: break-word; word-break: break-word;
+    display: flex; align-items: center; justify-content: space-between; gap: 12px; flex-wrap: wrap;
+  }
   .sub-preview-signed-by-bar input {
     font-size: 13px; color: #444; width: 220px; max-width: 100%; margin-inline-start: 6px;
     border: 1px solid #f0c419; background: #fdf6d8; border-radius: 8px; padding: 4px 8px; box-sizing: border-box; font-family: inherit;
@@ -375,6 +393,37 @@ function PencilIcon() {
         strokeLinejoin="round"
       />
     </svg>
+  );
+}
+
+function CopyIcon() {
+  return (
+    <svg width="12" height="12" viewBox="0 0 16 16" fill="none" aria-hidden="true">
+      <rect x="5.5" y="5.5" width="9" height="9" rx="1.5" stroke="currentColor" strokeWidth="1.3" />
+      <path d="M3 10.5V3a1 1 0 0 1 1-1h7.5" stroke="currentColor" strokeWidth="1.3" strokeLinecap="round" />
+    </svg>
+  );
+}
+
+// Admin-only (see COPY_LABEL above) — sits next to every "עריכה" pencil in
+// this file, always copying the section's live text regardless of whether
+// that section happens to be in edit mode right now.
+function CopyButton({ text, lang }: { text: string; lang: Lang }) {
+  const [copied, setCopied] = useState(false);
+  return (
+    <button
+      type="button"
+      className={`sub-preview-copy-link${copied ? " is-copied" : ""}`}
+      onClick={() => {
+        navigator.clipboard.writeText(text).then(() => {
+          setCopied(true);
+          window.setTimeout(() => setCopied(false), 1500);
+        });
+      }}
+    >
+      <CopyIcon />
+      {copied ? COPIED_LABEL[lang] : COPY_LABEL[lang]}
+    </button>
   );
 }
 
@@ -561,6 +610,16 @@ export function BookTextPage({
     setEditingSection(null);
   }
 
+  // Same shared "blessing" edit group as the blessing textarea (see above),
+  // but entered from the signed-by bar's own pencil — the textarea still
+  // gets the group's default autoFocus, so this steals it back to the
+  // signed-by input once it's actually mounted, matching what the admin
+  // just clicked on.
+  function editSignedBy() {
+    setEditingSection("blessing");
+    window.setTimeout(() => signedByInputRef.current?.focus(), 0);
+  }
+
   // The "before sending" question section: real answered question(s) for an
   // actual guest, or the admin's generic template preview's single
   // placeholder question. Admin edit mode (AlbumPageView) shows exactly the
@@ -589,12 +648,15 @@ export function BookTextPage({
             {SECTION_BLESSING_LABEL[lang]}
           </p>
           {editableBlessing ? (
-            editingSection !== "blessing" && (
-              <button type="button" className="sub-preview-edit-link" onClick={() => setEditingSection("blessing")}>
-                <PencilIcon />
-                {EDIT_LABEL[lang]}
-              </button>
-            )
+            <div className="sub-preview-section-head-actions">
+              <CopyButton text={editableBlessing.value} lang={lang} />
+              {editingSection !== "blessing" && (
+                <button type="button" className="sub-preview-edit-link" onClick={() => setEditingSection("blessing")}>
+                  <PencilIcon />
+                  {EDIT_LABEL[lang]}
+                </button>
+              )}
+            </div>
           ) : (
             onEdit && (
               <button type="button" className="sub-preview-edit-link" onClick={() => onEdit("blessing")}>
@@ -645,12 +707,15 @@ export function BookTextPage({
                 {questionText(q, lang)}
               </p>
               {editableAnswer ? (
-                !isEditingThis && (
-                  <button type="button" className="sub-preview-edit-link" onClick={() => setEditingSection(q.id)}>
-                    <PencilIcon />
-                    {EDIT_LABEL[lang]}
-                  </button>
-                )
+                <div className="sub-preview-section-head-actions">
+                  <CopyButton text={editableAnswer.value} lang={lang} />
+                  {!isEditingThis && (
+                    <button type="button" className="sub-preview-edit-link" onClick={() => setEditingSection(q.id)}>
+                      <PencilIcon />
+                      {EDIT_LABEL[lang]}
+                    </button>
+                  )}
+                </div>
               ) : (
                 onEdit && (
                   <button type="button" className="sub-preview-edit-link" onClick={() => onEdit("answerQuestion")}>
@@ -703,12 +768,15 @@ export function BookTextPage({
               </span>
               {ADDITIONAL_TEXT_LABEL[lang]}
             </p>
-            {editingSection !== "additional" && (
-              <button type="button" className="sub-preview-edit-link" onClick={() => setEditingSection("additional")}>
-                <PencilIcon />
-                {EDIT_LABEL[lang]}
-              </button>
-            )}
+            <div className="sub-preview-section-head-actions">
+              <CopyButton text={editableAdditionalText.value} lang={lang} />
+              {editingSection !== "additional" && (
+                <button type="button" className="sub-preview-edit-link" onClick={() => setEditingSection("additional")}>
+                  <PencilIcon />
+                  {EDIT_LABEL[lang]}
+                </button>
+              )}
+            </div>
           </div>
           {editingSection === "additional" ? (
             <>
@@ -748,23 +816,37 @@ export function BookTextPage({
 
       {/* "מאת" — admin-only, shown as its own footer bar below every card
           (not glued to the blessing text), toggled by the same blessing edit
-          state since it's saved together via the same action. */}
+          state since it's saved together via the same action. Its own
+          עריכה/copy actions here just trigger that same shared state — this
+          bar used to only become editable as a side effect of the blessing
+          card's own pencil, with no visible affordance of its own. */}
       {editableSignedBy && (
         <div className="sub-preview-signed-by-bar">
-          {SIGNED_BY_LABEL[lang]}:
-          {editingSection === "blessing" ? (
-            <input
-              ref={signedByInputRef}
-              value={editableSignedBy.value}
-              onChange={(e) => editableSignedBy.onChange(e.target.value)}
-              onBlur={() => {
-                editableSignedBy.onBlur();
-                handleBlessingGroupBlur();
-              }}
-            />
-          ) : (
-            <> {editableSignedBy.value}</>
-          )}
+          <span>
+            {SIGNED_BY_LABEL[lang]}:
+            {editingSection === "blessing" ? (
+              <input
+                ref={signedByInputRef}
+                value={editableSignedBy.value}
+                onChange={(e) => editableSignedBy.onChange(e.target.value)}
+                onBlur={() => {
+                  editableSignedBy.onBlur();
+                  handleBlessingGroupBlur();
+                }}
+              />
+            ) : (
+              <> {editableSignedBy.value}</>
+            )}
+          </span>
+          <div className="sub-preview-section-head-actions">
+            <CopyButton text={editableSignedBy.value} lang={lang} />
+            {editingSection !== "blessing" && (
+              <button type="button" className="sub-preview-edit-link" onClick={editSignedBy}>
+                <PencilIcon />
+                {EDIT_LABEL[lang]}
+              </button>
+            )}
+          </div>
         </div>
       )}
     </div>
