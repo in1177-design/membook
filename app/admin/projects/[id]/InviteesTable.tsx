@@ -300,13 +300,26 @@ export default function InviteesTable({ projectId, baseUrl, invitees, questions,
       <div style={headerRowStyle}>
         <div style={{ display: "flex", alignItems: "center", gap: 14 }}>
           <h2 style={{ fontSize: 17, fontWeight: 600, margin: 0 }}>מוזמנים ({visibleInvitees.length})</h2>
-          <input
-            type="text"
-            value={searchQuery}
-            onChange={(e) => setSearchQuery(e.target.value)}
-            placeholder="חיפוש לפי שם..."
-            style={searchInputStyle}
-          />
+          <div style={{ position: "relative", display: "inline-flex", alignItems: "center" }}>
+            <input
+              type="text"
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              placeholder="חיפוש לפי שם..."
+              style={searchInputStyle}
+            />
+            {searchQuery && (
+              <button
+                type="button"
+                onClick={() => setSearchQuery("")}
+                aria-label="ניקוי החיפוש"
+                title="ניקוי החיפוש"
+                style={searchClearButtonStyle}
+              >
+                ✕
+              </button>
+            )}
+          </div>
         </div>
         <AddInviteeMenu onAddSingle={() => setShowAdd(true)} onImportFromSheet={() => setShowImport(true)} />
       </div>
@@ -1613,10 +1626,34 @@ const inputStyle: React.CSSProperties = {
 
 const searchInputStyle: React.CSSProperties = {
   padding: "6px 12px",
+  // Extra room at the field's leading-in-RTL edge (visual left, where the ✕
+  // sits) so typed text never runs underneath the clear button.
+  paddingInlineStart: 26,
   fontSize: 13,
   border: "1px solid #ddd",
   borderRadius: 999,
   width: 200,
+  boxSizing: "border-box",
+};
+
+// ✕ clear button, nested inside the search box itself (searchInputStyle's
+// paddingInlineStart reserves room for it) rather than a separate control
+// next to the field.
+const searchClearButtonStyle: React.CSSProperties = {
+  position: "absolute",
+  insetInlineStart: 8,
+  width: 16,
+  height: 16,
+  padding: 0,
+  border: "none",
+  background: "none",
+  color: "#aaa",
+  fontSize: 12,
+  lineHeight: 1,
+  cursor: "pointer",
+  display: "flex",
+  alignItems: "center",
+  justifyContent: "center",
 };
 
 const labelStyle: React.CSSProperties = {
