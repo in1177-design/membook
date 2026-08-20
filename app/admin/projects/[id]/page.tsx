@@ -35,6 +35,13 @@ export default async function ProjectDetailPage({ params }: { params: Promise<{ 
   // pre-loading a photo before the invite is ever sent.
   const submittedCount = project.invitees.filter((i) => i.submission?.completedAt).length;
   const startedCount = project.invitees.filter((i) => i.inviteLink?.firstViewedAt).length;
+  // How many actual people ("אנשים") are coming, not just how many invitee
+  // rows said yes — each confirmed ("YES") invitee counts as adultsCount (or
+  // 1, themselves, if never specified) plus childrenCount (or 0 if unset).
+  const confirmedInvitees = project.invitees.filter((i) => i.attending === "YES");
+  const confirmedAdultsCount = confirmedInvitees.reduce((sum, i) => sum + (i.adultsCount ?? 1), 0);
+  const confirmedChildrenCount = confirmedInvitees.reduce((sum, i) => sum + (i.childrenCount ?? 0), 0);
+  const confirmedPeopleCount = confirmedAdultsCount + confirmedChildrenCount;
 
   const headersList = await headers();
   const host = headersList.get("host");
@@ -59,6 +66,9 @@ export default async function ProjectDetailPage({ params }: { params: Promise<{ 
         startedCount={startedCount}
         totalPhotos={totalPhotos}
         submittedCount={submittedCount}
+        confirmedPeopleCount={confirmedPeopleCount}
+        confirmedAdultsCount={confirmedAdultsCount}
+        confirmedChildrenCount={confirmedChildrenCount}
       >
         <ProjectSettingsCard projectId={project.id} projectName={project.name} coverImageUrl={project.coverImageUrl} />
       </DashboardCards>

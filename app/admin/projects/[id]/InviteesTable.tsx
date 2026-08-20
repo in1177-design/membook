@@ -35,6 +35,8 @@ type Invitee = {
   notes: string | null;
   attending: string | null;
   manualStatus: string | null;
+  adultsCount: number | null;
+  childrenCount: number | null;
   inviteLink: {
     id: string;
     token: string;
@@ -161,12 +163,27 @@ const ATTENDING_STYLE: Record<string, { bg: string; color: string; label: string
 };
 const ATTENDING_UNSET_STYLE = { bg: "#f1f1f1", color: "#999", label: "לא נקבע" };
 
+// Total head-count for the "כמה מגיעים" column next to "מגיעה לאירוע" — only
+// meaningful for a confirmed "כן" (adultsCount defaulting to 1, the invitee
+// themselves, childrenCount to 0, same rule as page.tsx's confirmedPeopleCount
+// dashboard stat). Every other attending value (לא/לא בארץ/אולי/unset) has no
+// real headcount, so it renders as "—" rather than a possibly-misleading 0.
+function attendingPeopleCount(invitee: Invitee): number | null {
+  if (invitee.attending !== "YES") return null;
+  return (invitee.adultsCount ?? 1) + (invitee.childrenCount ?? 0);
+}
+
 const STATUS_STYLE: Record<string, { bg: string; color: string; label: string }> = {
   // Manual-only — never computed automatically (see statusOf). Reached by
   // clicking the "הוגש" pill, or set directly via the row's "פעולות
   // נוספות" ← "שינוי סטטוס" menu. Once set it sticks (manualStatus is only
   // ever cleared back to "אוטומטי" from that same menu), so it survives
   // whatever the invitee's real activity does next.
+  // Manual-only too, reached by clicking the "בעיצוב" pill (or the same
+  // "שינוי סטטוס" menu) once the album spread's design work is actually
+  // done — the one status STATUS_CATEGORY below counts as "הסתיים" for the
+  // בתהליך/הסתיים filter toggle.
+  designDone: { bg: "#e6f4ea", color: "#1e7d3c", label: "הסתיים עיצוב" },
   inDesign: { bg: "#fde8f6", color: "#a3197b", label: "בעיצוב" },
   submitted: { bg: "#e3f8ec", color: "#0f9d58", label: "הוגש" },
   // A Submission row exists (e.g. an admin pre-loaded a photo before the
@@ -200,7 +217,25 @@ function statusOf(invitee: Invitee): keyof typeof STATUS_STYLE {
 // per product decision). Least-progressed → most-progressed, matching the
 // guest journey — same ordering rationale as STATUS_STYLE above.
 type SortKey = "name" | "attending" | "status" | "lastViewed";
-const STATUS_RANK: Record<keyof typeof STATUS_STYLE, number> = { pending: 0, sent: 1, viewed: 2, inProgress: 3, submitted: 4, inDesign: 5 };
+const STATUS_RANK: Record<keyof typeof STATUS_STYLE, number> = { pending: 0, sent: 1, viewed: 2, inProgress: 3, submitted: 4, inDesign: 5, designDone: 6 };
+
+// Drives the "בתהליך"/"הסתיים" filter toggle next to "+ פעולות" — a status's
+// category, not tied 1:1 to whether it's manual (inDesign is manual but
+// still counts as "in progress": there's still design work left to do).
+// A plain lookup (not a hardcoded pair of status lists) so a future status
+// only has to say which bucket it belongs to, once, right here.
+type StatusCategory = "inProgress" | "done";
+// The toggle's own selection — every real category plus "all" (no filtering).
+type StatusFilter = StatusCategory | "all";
+const STATUS_CATEGORY: Record<keyof typeof STATUS_STYLE, StatusCategory> = {
+  pending: "inProgress",
+  sent: "inProgress",
+  viewed: "inProgress",
+  inProgress: "inProgress",
+  submitted: "inProgress",
+  inDesign: "inProgress",
+  designDone: "done",
+};
 // Confirmed "כן" first (most actionable for the admin — e.g. seating/catering
 // counts), then "אולי", then "לא"/"לא בארץ" (both definite non-attendees),
 // unset last.
@@ -273,15 +308,28 @@ export default function InviteesTable({ projectId, baseUrl, invitees, questions,
   const [previewingInvitee, setPreviewingInvitee] = useState<Invitee | null>(null);
   const [searchQuery, setSearchQuery] = useState("");
   const [sort, setSort] = useState<{ key: SortKey; dir: "asc" | "desc" } | null>(null);
+  // בתהליך/הסתיים/הכל toggle next to "+ פעולות" — defaults to בתהליך, the
+  // view an admin working through the album actually wants open by default.
+  const [statusCategory, setStatusCategory] = useState<StatusFilter>("inProgress");
 
   // Name-only substring match (case-insensitive) — matches invitee.name as
   // typed, deliberately not name2/relation/phone/etc. per product decision.
   const query = searchQuery.trim().toLowerCase();
   const searchedInvitees = query ? invitees.filter((i) => i.name.toLowerCase().includes(query)) : invitees;
 
-  // Sorting is applied on top of the search results, not the full list —
+  // Category counts reflect the search box (so they stay meaningful while
+  // searching) but not the toggle itself — each button always shows how
+  // many invitees are in *that* bucket, not the currently-selected one.
+  const inProgressCount = searchedInvitees.filter((i) => STATUS_CATEGORY[statusOf(i)] === "inProgress").length;
+  const doneCount = searchedInvitees.filter((i) => STATUS_CATEGORY[statusOf(i)] === "done").length;
+  const categoryFilteredInvitees =
+    statusCategory === "all" ? searchedInvitees : searchedInvitees.filter((i) => STATUS_CATEGORY[statusOf(i)] === statusCategory);
+
+  // Sorting is applied last, on top of the search + category results —
   // clicking a column header sorts whatever's currently visible.
-  const visibleInvitees = sort ? [...searchedInvitees].sort((a, b) => sort.dir === "asc" ? compareBy(sort.key, a, b) : compareBy(sort.key, b, a)) : searchedInvitees;
+  const visibleInvitees = sort
+    ? [...categoryFilteredInvitees].sort((a, b) => (sort.dir === "asc" ? compareBy(sort.key, a, b) : compareBy(sort.key, b, a)))
+    : categoryFilteredInvitees;
 
   function toggleSort(key: SortKey) {
     setSort((prev) => {
@@ -321,7 +369,16 @@ export default function InviteesTable({ projectId, baseUrl, invitees, questions,
             )}
           </div>
         </div>
-        <AddInviteeMenu onAddSingle={() => setShowAdd(true)} onImportFromSheet={() => setShowImport(true)} />
+        <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+          <StatusCategoryToggle
+            value={statusCategory}
+            onChange={setStatusCategory}
+            inProgressCount={inProgressCount}
+            doneCount={doneCount}
+            allCount={searchedInvitees.length}
+          />
+          <AddInviteeMenu onAddSingle={() => setShowAdd(true)} onImportFromSheet={() => setShowImport(true)} />
+        </div>
       </div>
 
       <div style={{ overflowX: "auto", overflowY: "auto", flex: 1, minHeight: 0 }}>
@@ -332,11 +389,11 @@ export default function InviteesTable({ projectId, baseUrl, invitees, questions,
               <th style={thStyle}>קרבה</th>
               <th style={thStyle}>שפה</th>
               <SortableTh sortKey="attending" label="מגיעה לאירוע" sort={sort} onSort={toggleSort} />
+              <th style={thStyle}>כמה מגיעים</th>
               <SortableTh sortKey="status" label="סטטוס" sort={sort} onSort={toggleSort} />
               <th style={thStyle}>התקדמות</th>
               <th style={thStyle}>תמונות</th>
-              <th style={thStyle}>כניסה ראשונה</th>
-              <SortableTh sortKey="lastViewed" label="כניסה אחרונה" sort={sort} onSort={toggleSort} />
+              <SortableTh sortKey="lastViewed" label="כניסה" sort={sort} onSort={toggleSort} />
               <th style={thStyle}></th>
             </tr>
           </thead>
@@ -345,6 +402,13 @@ export default function InviteesTable({ projectId, baseUrl, invitees, questions,
               <tr>
                 <td colSpan={10} style={{ ...tdStyle, textAlign: "center", color: "#999", padding: "24px 10px" }}>
                   לא נמצאו מוזמנים בשם &quot;{searchQuery.trim()}&quot;
+                </td>
+              </tr>
+            ) : null}
+            {visibleInvitees.length === 0 && !query && invitees.length > 0 ? (
+              <tr>
+                <td colSpan={10} style={{ ...tdStyle, textAlign: "center", color: "#999", padding: "24px 10px" }}>
+                  {statusCategory === "done" ? "אין עדיין מוזמנים שהסתיימו" : "כל המוזמנים הסתיימו 🎉"}
                 </td>
               </tr>
             ) : null}
@@ -400,6 +464,7 @@ export default function InviteesTable({ projectId, baseUrl, invitees, questions,
                   <td style={tdStyle}>
                     <AttendingCell invitee={invitee} projectId={projectId} />
                   </td>
+                  <td style={{ ...tdStyle, color: "#666" }}>{attendingPeopleCount(invitee) ?? "—"}</td>
                   <td style={tdStyle}>
                     <StatusCell invitee={invitee} projectId={projectId} status={status} link={link} />
                   </td>
@@ -416,11 +481,15 @@ export default function InviteesTable({ projectId, baseUrl, invitees, questions,
                       )}
                     </div>
                   </td>
-                  <td style={{ ...tdStyle, color: "#999", fontSize: 13 }} title={link?.firstViewedAt?.toLocaleString("he-IL") ?? ""}>
-                    {link?.firstViewedAt ? link.firstViewedAt.toLocaleDateString("he-IL") : "—"}
-                  </td>
-                  <td style={{ ...tdStyle, color: "#999", fontSize: 13 }} title={link?.lastViewedAt?.toLocaleString("he-IL") ?? ""}>
-                    {link?.lastViewedAt ? link.lastViewedAt.toLocaleDateString("he-IL") : "—"}
+                  <td style={{ ...tdStyle, color: "#999", fontSize: 13 }}>
+                    {link?.firstViewedAt ? (
+                      <>
+                        <div title={link.firstViewedAt.toLocaleString("he-IL")}>{link.firstViewedAt.toLocaleDateString("he-IL")}</div>
+                        <div title={link.lastViewedAt?.toLocaleString("he-IL") ?? ""}>{link.lastViewedAt ? link.lastViewedAt.toLocaleDateString("he-IL") : "—"}</div>
+                      </>
+                    ) : (
+                      "—"
+                    )}
                   </td>
                   <td style={tdStyle}>
                     <RowActions
@@ -486,13 +555,20 @@ export default function InviteesTable({ projectId, baseUrl, invitees, questions,
   );
 }
 
-const PROGRESS_STEPS = [
-  { key: "viewed", label: "נפתח" },
-  { key: "answered", label: "הוכנס טקסט" },
-  { key: "photo", label: "צורפה תמונה" },
-  { key: "submitted", label: "נשלח" },
-  { key: "design", label: "יש עיצוב" },
-] as const;
+// Each step's tooltip text differs by whether it's actually done yet — a
+// static label ("נפתח") reads the same whether or not it happened, so every
+// dot now says explicitly which side of that it's on. The "design" step
+// (5th dot) was dropped entirely per product decision — this column is only
+// about the guest's own submission progress now, not the album-design status
+// already shown in the "סטטוס" column.
+const PROGRESS_STEPS: { key: string; notDoneLabel: string; doneLabel: string }[] = [
+  // doneLabel unused here — the first dot's done label is computed
+  // per-invitee below (it includes the actual date/time viewed).
+  { key: "viewed", notDoneLabel: "עדיין לא נפתח", doneLabel: "" },
+  { key: "answered", notDoneLabel: "טקסט", doneLabel: "טקסט הוכנס" },
+  { key: "photo", notDoneLabel: "תמונה", doneLabel: "צורפה תמונה" },
+  { key: "submitted", notDoneLabel: "עדיין לא נשלח", doneLabel: "נשלח" },
+];
 
 // Plain spaced dots, no connecting bars between them — each step stands on
 // its own rather than reading as one continuous progress bar.
@@ -500,37 +576,47 @@ function ProgressDots({ invitee }: { invitee: Invitee }) {
   const link = invitee.inviteLink;
   const sub = invitee.submission;
 
-  const done = [
-    Boolean(link?.firstViewedAt),
-    Boolean(sub && sub.answers.length > 0),
-    Boolean(sub && sub.mediaAssets.length > 0),
-    Boolean(sub?.completedAt),
-    statusOf(invitee) === "inDesign",
-  ];
+  const done = [Boolean(link?.firstViewedAt), Boolean(sub && sub.answers.length > 0), Boolean(sub && sub.mediaAssets.length > 0), Boolean(sub?.completedAt)];
 
   return (
     <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
       {PROGRESS_STEPS.map((step, i) => {
-        const title =
+        const label =
           i === 0
             ? link?.firstViewedAt
-              ? `נפתח לראשונה: ${link.firstViewedAt.toLocaleString("he-IL")}`
-              : "טרם נפתח"
-            : step.label;
-        return (
-          <div
-            key={step.key}
-            title={title}
-            style={{
-              width: 10,
-              height: 10,
-              borderRadius: "50%",
-              background: done[i] ? "#22c55e" : "#ddd",
-              flexShrink: 0,
-            }}
-          />
-        );
+              ? `פתיחה ראשונה ב-${link.firstViewedAt.toLocaleString("he-IL")}`
+              : step.notDoneLabel
+            : done[i]
+              ? step.doneLabel
+              : step.notDoneLabel;
+        return <ProgressDot key={step.key} label={label} done={done[i]} />;
       })}
+    </div>
+  );
+}
+
+// A native `title` alone was too easy to miss (slow, inconsistent browser
+// delay) — a small custom tooltip, same visual language as
+// CopyTemplateButton's hover preview elsewhere in this file, shows
+// immediately on hover instead.
+function ProgressDot({ label, done }: { label: string; done: boolean }) {
+  const [hovering, setHovering] = useState(false);
+  return (
+    <div
+      style={{ position: "relative", display: "flex" }}
+      onMouseEnter={() => setHovering(true)}
+      onMouseLeave={() => setHovering(false)}
+    >
+      <div
+        style={{
+          width: 10,
+          height: 10,
+          borderRadius: "50%",
+          background: done ? "#22c55e" : "#ddd",
+          flexShrink: 0,
+        }}
+      />
+      {hovering && <div style={copiedBadgeStyle}>{label}</div>}
     </div>
   );
 }
@@ -743,7 +829,53 @@ const MANUAL_STATUS_OPTIONS: { value: string | null; label: string }[] = [
   { value: "inProgress", label: STATUS_STYLE.inProgress.label },
   { value: "submitted", label: STATUS_STYLE.submitted.label },
   { value: "inDesign", label: STATUS_STYLE.inDesign.label },
+  { value: "designDone", label: STATUS_STYLE.designDone.label },
 ];
+
+// The "+ פעולות" header's neighbor — filters the whole table between
+// invitees still in progress and ones fully done (see STATUS_CATEGORY).
+function StatusCategoryToggle({
+  value,
+  onChange,
+  inProgressCount,
+  doneCount,
+  allCount,
+}: {
+  value: StatusFilter;
+  onChange: (v: StatusFilter) => void;
+  inProgressCount: number;
+  doneCount: number;
+  allCount: number;
+}) {
+  const options: { value: StatusFilter; label: string; count: number }[] = [
+    { value: "inProgress", label: "בתהליך", count: inProgressCount },
+    { value: "done", label: "הסתיים", count: doneCount },
+    { value: "all", label: "הכל", count: allCount },
+  ];
+  return (
+    <div style={{ display: "flex", border: "1px solid #ddd", borderRadius: 999, padding: 2, gap: 2 }}>
+      {options.map((opt) => (
+        <button
+          key={opt.value}
+          type="button"
+          onClick={() => onChange(opt.value)}
+          style={{
+            border: "none",
+            borderRadius: 999,
+            padding: "5px 12px",
+            fontSize: 13,
+            fontWeight: 600,
+            cursor: "pointer",
+            background: value === opt.value ? "#1f1f1f" : "transparent",
+            color: value === opt.value ? "white" : "#666",
+          }}
+        >
+          {opt.label} ({opt.count})
+        </button>
+      ))}
+    </div>
+  );
+}
 
 function MoreMenu({ invitee, projectId }: { invitee: Invitee; projectId: string }) {
   const router = useRouter();
@@ -991,11 +1123,17 @@ function InlineChipMenu({
 }
 
 // The "סטטוס" pill. Mirrors the existing "טרם נשלח" behavior (a clickable
-// form that advances the invitee one step) for the one other step that's
+// form that advances the invitee one step) for the two other steps that are
 // meant to advance by a simple click: once a submission is actually done
-// ("הוגש"), clicking it marks the invitee "בעיצוב" (manualStatus). Every
-// other status stays a plain, non-clickable pill here — advancing/changing
-// those goes through "פעולות נוספות" ← "שינוי סטטוס" (MoreMenu) instead.
+// ("הוגש"), clicking it marks "בעיצוב"; clicking "בעיצוב" itself then marks
+// "הסתיים עיצוב" (both via manualStatus). Every other status stays a plain,
+// non-clickable pill here — advancing/changing those goes through "פעולות
+// נוספות" ← "שינוי סטטוס" (MoreMenu) instead.
+const STATUS_CLICK_ADVANCE: Partial<Record<keyof typeof STATUS_STYLE, keyof typeof STATUS_STYLE>> = {
+  submitted: "inDesign",
+  inDesign: "designDone",
+};
+
 function StatusCell({
   invitee,
   projectId,
@@ -1025,7 +1163,8 @@ function StatusCell({
     );
   }
 
-  if (current === "submitted") {
+  const nextStatus = STATUS_CLICK_ADVANCE[current];
+  if (nextStatus) {
     return (
       <button
         type="button"
@@ -1033,14 +1172,14 @@ function StatusCell({
         onClick={async () => {
           setMarking(true);
           try {
-            await updateInviteeManualStatus(invitee.id, projectId, "inDesign");
+            await updateInviteeManualStatus(invitee.id, projectId, nextStatus);
             router.refresh();
           } finally {
             setMarking(false);
           }
         }}
         style={{ ...pillStyle, background: status.bg, color: status.color, border: "none", cursor: marking ? "default" : "pointer", opacity: marking ? 0.6 : 1 }}
-        title="לחיצה תסמן כ״בעיצוב״"
+        title={`לחיצה תסמן כ״${STATUS_STYLE[nextStatus].label}״`}
       >
         {status.label}
       </button>
@@ -1399,6 +1538,30 @@ function EditInviteeForm({
         <RelationSelect initialValue={invitee.relation ?? ""} />
       </div>
       <LanguageToggle value={language} onChange={setLanguage} options={options} />
+      <div style={rowStyle}>
+        <label>
+          <span style={labelStyle}>מבוגרים מגיעים</span>
+          <select name="adultsCount" defaultValue={invitee.adultsCount ?? ""} style={inputStyle}>
+            <option value="">לא צוין</option>
+            {[1, 2, 3, 4].map((n) => (
+              <option key={n} value={n}>
+                {n}
+              </option>
+            ))}
+          </select>
+        </label>
+        <label>
+          <span style={labelStyle}>ילדים מגיעים</span>
+          <select name="childrenCount" defaultValue={invitee.childrenCount ?? ""} style={inputStyle}>
+            <option value="">לא צוין</option>
+            {[1, 2, 3, 4, 5].map((n) => (
+              <option key={n} value={n}>
+                {n}
+              </option>
+            ))}
+          </select>
+        </label>
+      </div>
       <label>
         <span style={labelStyle}>הערות</span>
         <textarea name="notes" defaultValue={invitee.notes ?? ""} rows={3} style={{ ...inputStyle, resize: "vertical" }} />

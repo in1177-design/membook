@@ -454,6 +454,17 @@ export async function deleteInvitee(inviteeId: string, projectId: string) {
   revalidatePath(`/admin/projects/${projectId}`);
 }
 
+// "" (the dropdown's own "לא צוין" option) and absence both mean "not
+// specified" — kept as null rather than 0 so the dashboard stat can tell
+// "admin said zero" apart from "admin never answered" (see Invitee.adultsCount
+// in schema.prisma).
+function parseOptionalCount(formData: FormData, field: string): number | null {
+  const raw = String(formData.get(field) ?? "").trim();
+  if (!raw) return null;
+  const n = Number(raw);
+  return Number.isFinite(n) ? n : null;
+}
+
 export async function updateInvitee(inviteeId: string, projectId: string, formData: FormData) {
   const name = String(formData.get("name") ?? "").trim();
   if (!name) throw new Error("שם המוזמן חובה");
@@ -469,10 +480,17 @@ export async function updateInvitee(inviteeId: string, projectId: string, formDa
   const language = languageRaw ? toLanguage(languageRaw) : null;
   await assertLanguageEnabled(projectId, language);
   const notes = String(formData.get("notes") ?? "").trim() || null;
+  const adultsCount = parseOptionalCount(formData, "adultsCount");
+  const childrenCount = parseOptionalCount(formData, "childrenCount");
+  // Entering how many people are coming implicitly confirms they're coming —
+  // saving a headcount (either field) flips attending to "כן" automatically,
+  // regardless of whatever it was set to before (per explicit product
+  // decision: specifying a count IS the confirmation).
+  const attending = adultsCount !== null || childrenCount !== null ? "YES" : undefined;
 
   await prisma.invitee.update({
     where: { id: inviteeId },
-    data: { name, relation, phone, email, name2, phone2, language, notes },
+    data: { name, relation, phone, email, name2, phone2, language, notes, adultsCount, childrenCount, ...(attending ? { attending } : {}) },
   });
 
   revalidatePath(`/admin/projects/${projectId}`);

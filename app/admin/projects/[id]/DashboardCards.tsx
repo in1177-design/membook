@@ -4,6 +4,12 @@ type Props = {
   startedCount: number;
   totalPhotos: number;
   submittedCount: number;
+  // Real head-count of people confirmed to attend (attending === "YES"),
+  // summing each invitee's own adultsCount/childrenCount — not just how many
+  // invitee rows said yes. See page.tsx's confirmedPeopleCount.
+  confirmedPeopleCount: number;
+  confirmedAdultsCount: number;
+  confirmedChildrenCount: number;
   children?: React.ReactNode;
 };
 
@@ -13,6 +19,9 @@ export default function DashboardCards({
   startedCount,
   totalPhotos,
   submittedCount,
+  confirmedPeopleCount,
+  confirmedAdultsCount,
+  confirmedChildrenCount,
   children,
 }: Props) {
   const startedPct = totalParticipants > 0 ? Math.round((startedCount / totalParticipants) * 100) : 0;
@@ -56,6 +65,19 @@ export default function DashboardCards({
         <div style={cardNumberStyle}>{totalPhotos}</div>
         <Badge color="#0f9d58" bg="#e3f8ec">
           {submittedCount} הגישו ({submittedPct}%)
+        </Badge>
+      </div>
+
+      <div style={cardStyle}>
+        <div style={cardHeadStyle}>
+          <IconCircle color="#8a3fd1" bg="#f3ecfb">
+            <PartyIcon />
+          </IconCircle>
+          <span style={cardLabelStyle}>אנשים שאישרו הגעה</span>
+        </div>
+        <div style={cardNumberStyle}>{confirmedPeopleCount}</div>
+        <Badge color="#8a3fd1" bg="#f3ecfb">
+          {confirmedAdultsCount} מבוגרים · {confirmedChildrenCount} ילדים
         </Badge>
       </div>
 
@@ -152,6 +174,15 @@ function PhotoStackIcon() {
       <rect x="4.5" y="5.5" width="12" height="10" rx="1.8" stroke="currentColor" strokeWidth="1.3" />
       <path d="M2.5 13V4.7A1.2 1.2 0 0 1 3.7 3.5h9" stroke="currentColor" strokeWidth="1.3" strokeLinecap="round" />
       <circle cx="8" cy="9.5" r="1.1" stroke="currentColor" strokeWidth="1" />
+    </svg>
+  );
+}
+
+function PartyIcon() {
+  return (
+    <svg width="15" height="15" viewBox="0 0 20 20" fill="none">
+      <path d="M3.5 16.5 5 8l9.5 4.5-8 4-3-.5Z" stroke="currentColor" strokeWidth="1.3" strokeLinejoin="round" />
+      <path d="M14 3.5c.6.6.6 1.5 0 2M16.5 6c.6.6.6 1.5 0 2M11.5 5c.6.6.6 1.5 0 2" stroke="currentColor" strokeWidth="1.2" strokeLinecap="round" />
     </svg>
   );
 }

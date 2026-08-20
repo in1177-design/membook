@@ -210,6 +210,13 @@ model Invitee {
   // RSVP status, set by the admin (not collected from the guest in v1).
   attending AttendingStatus?
 
+  // How many people this invitee is bringing — set by the admin (edit
+  // drawer only), used purely for the "אנשים שאישרו הגעה" dashboard stat.
+  // Null means "not specified"; the stat treats a null adultsCount as 1
+  // (the invitee themselves) and a null childrenCount as 0.
+  adultsCount   Int?
+  childrenCount Int?
+
   // Manual override for the invitees-table "סטטוס" pill (InviteesTable.tsx's
   // statusOf()). Null (the default) means the status is fully auto-computed
   // from real activity (invite sent/viewed, submission progress). Set either

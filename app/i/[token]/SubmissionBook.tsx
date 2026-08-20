@@ -197,8 +197,12 @@ export const BOOK_STYLES = `
      (the plain "before sending" subtext has none, so this is a no-op there). */
   .sub-preview-subtext { font-size: 16px; color: #8a8a8a; margin: 6px 0 0; text-align: center; white-space: pre-line; }
   .sub-preview-section { border: 1px solid #ece9e4; border-radius: 14px; padding: 16px 18px; margin-bottom: 14px; }
-  .sub-preview-section-head { display: flex; align-items: center; justify-content: space-between; gap: 8px; margin: 0 0 10px; }
-  .sub-preview-section-title { display: flex; align-items: center; gap: 8px; font-size: 14px; font-weight: 700; color: #2b2b2b; margin: 0; overflow-wrap: break-word; word-break: break-word; min-width: 0; }
+  /* flex-wrap + the title's own flex-basis:100% below force the עריכה/העתקה
+     actions onto their own row underneath the title, instead of squeezed
+     alongside it — a long question (e.g. a longer RU/EN translation) used to
+     shrink the title down to a sliver next to the buttons on the same line. */
+  .sub-preview-section-head { display: flex; flex-wrap: wrap; align-items: center; justify-content: flex-end; gap: 8px; margin: 0 0 10px; }
+  .sub-preview-section-title { display: flex; flex-basis: 100%; align-items: center; gap: 8px; font-size: 14px; font-weight: 700; color: #2b2b2b; margin: 0; overflow-wrap: break-word; word-break: break-word; min-width: 0; }
   .sub-preview-section-icon { flex-shrink: 0; width: 26px; height: 26px; border-radius: 50%; background: #f1effb; display: flex; align-items: center; justify-content: center; color: #5838b8; }
   /* Same look for both — the blessing's body text and the Q&A's answer text
      are both just "the guest's own words" inside an already-bordered
