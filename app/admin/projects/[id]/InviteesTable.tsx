@@ -312,10 +312,13 @@ export default function InviteesTable({ projectId, baseUrl, invitees, questions,
   // view an admin working through the album actually wants open by default.
   const [statusCategory, setStatusCategory] = useState<StatusFilter>("inProgress");
 
-  // Name-only substring match (case-insensitive) — matches invitee.name as
-  // typed, deliberately not name2/relation/phone/etc. per product decision.
+  // Substring match (case-insensitive) against name OR name2 — deliberately
+  // not relation/phone/etc. per product decision. A couple's second name
+  // (e.g. "טניה" / name2 "מיכאל קרפ") needs to be findable by either half.
   const query = searchQuery.trim().toLowerCase();
-  const searchedInvitees = query ? invitees.filter((i) => i.name.toLowerCase().includes(query)) : invitees;
+  const searchedInvitees = query
+    ? invitees.filter((i) => i.name.toLowerCase().includes(query) || (i.name2 ?? "").toLowerCase().includes(query))
+    : invitees;
 
   // Category counts reflect the search box (so they stay meaningful while
   // searching) but not the toggle itself — each button always shows how
